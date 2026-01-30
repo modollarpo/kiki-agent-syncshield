@@ -1,0 +1,45 @@
+name: Build and Push All Service Images to ACR
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: false
+
+      - name: Azure CLI - Login to ACR
+        run: az acr login --name ${{ secrets.ACR_NAME }}
+
+      - name: Build and Push All Service Images
+        env:
+          ACR_NAME: ${{ secrets.ACR_NAME }}
+        run: |
+          for DOCKERFILE in services/*/Dockerfile; do
+            SERVICE=$(basename $(dirname "$DOCKERFILE"))
+            echo "Building and pushing $SERVICE..."
+            docker build -t $ACR_NAME.azurecr.io/$SERVICE:latest -f services/$SERVICE/Dockerfile .
+            docker push $ACR_NAME.azurecr.io/$SERVICE:latest
+          done
+
+      # Optionally, deploy manifests after images are pushed
+      # - name: Set up kubectl
+      #   uses: azure/setup-kubectl@v3
+      #   with:
+      #     version: 'latest'
+      # - name: Get AKS credentials
+      #   run: az aks get-credentials --resource-group kiki-rg --name kiki-aks --overwrite-existing
+      # - name: Deploy to AKS
+      #   run: kubectl apply -f deploy/k8s/
