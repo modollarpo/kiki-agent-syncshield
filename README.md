@@ -46,11 +46,11 @@ KIKI Agent™ is built for modularity and extensibility, enabling organizations 
 - See `/docs/API_REFERENCE.md` for API details.
 - See `/docs/AGENT_SPEC.md` for agent roles, protocols, and integration patterns.
 
-# KIKI Agent™ – Autonomous Revenue Engine
 
 This repository contains the full production-grade, multi-service architecture for the KIKI Agent™ Autonomous Revenue Engine. Each service is isolated, scalable, and designed for enterprise deployment.
 
 ## Services
+
 - **SyncBrain**: LLM Orchestration (FastAPI + Python)
 - **SyncValue**: LTV Prediction Engine (Python + PyTorch)
 - **SyncFlow**: Real-time Bidding Engine (GoLang)
@@ -59,6 +59,7 @@ This repository contains the full production-grade, multi-service architecture f
 - **SyncShield**: Compliance + Audit Logging (GoLang)
 
 ## Infrastructure
+
 - Docker, Kubernetes, API Gateway, Service Mesh, PostgreSQL, Redis, MinIO/S3
 
 See `/docs` for full architecture and API documentation.
