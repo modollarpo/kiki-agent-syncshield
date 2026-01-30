@@ -46,7 +46,6 @@ KIKI Agent™ is built for modularity and extensibility, enabling organizations 
 - See `/docs/API_REFERENCE.md` for API details.
 - See `/docs/AGENT_SPEC.md` for agent roles, protocols, and integration patterns.
 
-
 This repository contains the full production-grade, multi-service architecture for the KIKI Agent™ Autonomous Revenue Engine. Each service is isolated, scalable, and designed for enterprise deployment.
 
 ## Services
