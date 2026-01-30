@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2026-01-26T12:00:00Z",
+    "bid_id": "BID12345",
+    "reasoning_code": "SyncBrain:CTRDrop",
+    "action": "rollback",
+    "ai_revenue": 500,
+    "manual_baseline_cost": 700,
+    "ai_operating_cost": 20
+  },
+  {
+    "timestamp": "2026-01-26T12:01:00Z",
+    "bid_id": "BID12346",
+    "reasoning_code": "SyncBrain:SentimentGuard",
+    "action": "block",
+    "ai_revenue": 0,
+    "manual_baseline_cost": 100,
+    "ai_operating_cost": 5
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "name": "kiki-agent-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/dashboard"
+  ],
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "or": "^0.2.0",
+    "react": "^19.2.4",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.2.4",
+    "tsc": "^2.0.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "yarn@4.12.0"
+}

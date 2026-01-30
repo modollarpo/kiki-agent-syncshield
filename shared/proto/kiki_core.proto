@@ -1,0 +1,60 @@
+
+syntax = "proto3";
+option go_package = "github.com/kiki_agent/shared/types/go/kiki_corepb";
+
+package kiki;
+
+// Explainable AI Reasoning Metadata
+message ReasoningMetadata {
+  string agent_id = 1;        // Which agent acted (e.g., SyncCreate)
+  string action_type = 2;     // e.g., GENERATE_VIDEO
+  float confidence_score = 3; // AI certainty (0.0 - 1.0)
+  string intent = 4;          // Goal: "Increase engagement for luxury segment"
+  string evidence = 5;        // Data source: "Detected 22% CTR spike in high-LTV"
+  string reasoning_text = 6;  // Narrative for the Human-in-the-Loop
+}
+
+service StrategyOrchestrator {
+  rpc Coordinate (PlanRequest) returns (PlanResponse);
+}
+
+service ValueEngine {
+  rpc PredictLTV (DataRequest) returns (LTVResult);
+}
+
+message PlanRequest {
+  string user_id = 1;
+  string context = 2;
+}
+
+message PlanResponse {
+  string plan = 1;
+  string reason = 2;
+}
+
+message DataRequest {
+  string user_id = 1;
+  repeated float features = 2;
+}
+
+message LTVResult {
+  float ltv = 1;
+  string model_version = 2;
+}
+
+// --- SyncCreate Creative Generation ---
+service CreativeGenerator {
+  rpc GenerateCreative (GenerateCreativeRequest) returns (GenerateCreativeResponse);
+}
+
+message GenerateCreativeRequest {
+  string prompt = 1;
+  string user_id = 2;
+  string style = 3;
+  int32 num_images = 4;
+}
+
+message GenerateCreativeResponse {
+  repeated string image_urls = 1;
+  string job_id = 2;
+}

@@ -1,0 +1,43 @@
+import { Meta, StoryObj } from "@storybook/react";
+import { Sidebar } from "../index";
+
+<Meta title="Design System/Sidebar" component={Sidebar} />
+
+# Sidebar Component
+
+The `Sidebar` component provides a high-trust, dark-mode navigation sidebar for enterprise applications. It supports custom logo, navigation items, and footer content.
+
+## Usage
+
+```tsx
+import { Sidebar } from "@kiki/ui";
+
+<Sidebar
+  logo="KIKI Agent™"
+  items={[
+    { label: "Dashboard", icon: "🏠", active: true },
+    { label: "Agents", icon: "🤖" },
+    { label: "Billing", icon: "💳" },
+    { label: "Settings", icon: "⚙️" },
+  ]}
+  footer="© 2024 KIKI Agent™"
+/>
+```
+
+## Props
+
+| Prop   | Type                                   | Description                        |
+|--------|----------------------------------------|------------------------------------|
+| logo   | `React.ReactNode`                      | Logo or brand element              |
+| items  | `{ label: string; icon?: React.ReactNode; active?: boolean }[]` | Navigation items                   |
+| footer | `React.ReactNode`                      | Footer content                     |
+
+## Accessibility
+
+- All navigation items are keyboard accessible.
+- Active item is visually indicated.
+
+## Theming
+
+- Fully styled for dark mode using Tailwind CSS.
+- Use `className` to extend or override styles.

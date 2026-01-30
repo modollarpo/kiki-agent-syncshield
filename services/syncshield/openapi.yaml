@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: SyncShield API
+  version: 1.0.0
+  description: Compliance, audit logging, and risk scanning for KIKI Agent™
+paths:
+  /audit:
+    post:
+      summary: Log audit event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditRequest'
+      responses:
+        '200':
+          description: Event audited
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  event:
+                    type: string
+  /risk-scan:
+    post:
+      summary: Run risk scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskScanRequest'
+      responses:
+        '200':
+          description: Scan complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+  /logs:
+    get:
+      summary: Get audit logs
+      responses:
+        '200':
+          description: List of logs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      type: string
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+components:
+  schemas:
+    AuditRequest:
+      type: object
+      properties:
+        event:
+          type: string
+        user_id:
+          type: string
+        data:
+          type: object
+    RiskScanRequest:
+      type: object
+      properties:
+        data:
+          type: object

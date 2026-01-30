@@ -1,0 +1,17 @@
+syntax = "proto3";
+option go_package = "github.com/kiki_agent/shared/proto/gen";
+package ltv;
+
+service LtvService {
+  rpc PredictLtv (PredictLtvRequest) returns (PredictLtvResponse);
+}
+
+message PredictLtvRequest {
+  string user_id = 1;
+  map<string, float> features = 2;
+}
+
+message PredictLtvResponse {
+  string user_id = 1;
+  float ltv = 2;
+}

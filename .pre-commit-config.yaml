@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.55.2
+    hooks:
+      - id: golangci-lint
+        files: ^services/syncshield/safefail/.*\.go$
+  - repo: https://github.com/protocolbuffers/protobuf
+    rev: v24.2
+    hooks:
+      - id: protoc
+        name: 'protoc codegen'
+        entry: bash -c 'protoc --go_out=services/syncshield/safefail/proto --go-grpc_out=services/syncshield/safefail/proto services/syncshield/safefail/safefail.proto'
+        language: system
+        files: ^services/syncshield/safefail/safefail\.proto$

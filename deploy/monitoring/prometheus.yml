@@ -1,0 +1,28 @@
+# KIKI Agent™ Monitoring
+#
+# Prometheus scrape config example:
+#
+# scrape_configs:
+#   - job_name: 'kiki-api-gateway'
+#     static_configs:
+#       - targets: ['api-gateway:8080']
+#         labels:
+#           service: api-gateway
+#   - job_name: 'kiki-syncbrain'
+#     static_configs:
+#       - targets: ['syncbrain:8001']
+#   - job_name: 'kiki-syncvalue'
+#     static_configs:
+#       - targets: ['syncvalue:8002']
+#   - job_name: 'kiki-syncflow'
+#     static_configs:
+#       - targets: ['syncflow:8003']
+#   - job_name: 'kiki-synccreate'
+#     static_configs:
+#       - targets: ['synccreate:8004']
+#   - job_name: 'kiki-syncengage'
+#     static_configs:
+#       - targets: ['syncengage:8005']
+#   - job_name: 'kiki-syncshield'
+#     static_configs:
+#       - targets: ['syncshield:8006']

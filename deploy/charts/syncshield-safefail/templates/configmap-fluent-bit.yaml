@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "syncshield-safefail.fullname" . }}-fluent-bit
+data:
+    fluent-bit.conf: |
+    [SERVICE]
+      Flush        1
+      Daemon       Off
+      Log_Level    info
+    [INPUT]
+      Name   tail
+      Path   /app/audit.log
+      Tag    safefail.audit
+      DB     /app/fluentbit.db
+      Mem_Buf_Limit 5MB
+      Skip_Long_Lines On
+    {{- if eq .Values.logShipping.backend "loki" }}
+    [OUTPUT]
+      Name   loki
+      Match  safefail.*
+      Url    {{ .Values.logShipping.lokiUrl }}
+      Labels {job="safefail"}
+    {{- else if eq .Values.logShipping.backend "elasticsearch" }}
+    [OUTPUT]
+      Name  es
+      Match safefail.*
+      Host  elasticsearch
+      Port  9200
+      Index safefail
+      Type  _doc
+      Logstash_Format On
+    {{- else if eq .Values.logShipping.backend "datadog" }}
+    [OUTPUT]
+      Name   datadog
+      Match  safefail.*
+      Host   agent
+      TLS    Off
+    {{- end }}

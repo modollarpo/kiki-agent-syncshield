@@ -1,0 +1,31 @@
+name: Import Grafana Dashboards (Multi-Env)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'deploy/grafana/*.json'
+      - 'deploy/grafana/import_dashboard.py'
+
+jobs:
+  import-grafana-dashboards:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, staging, prod]
+    env:
+      GRAFANA_URL: ${{ secrets[format('GRAFANA_URL_{0}', matrix.environment | upper)] }}
+      GRAFANA_API_KEY: ${{ secrets[format('GRAFANA_API_KEY_{0}', matrix.environment | upper)] }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install requests
+      - name: Import all dashboards for ${{ matrix.environment }}
+        run: |
+          for f in deploy/grafana/*.json; do
+            DASHBOARD_JSON_PATH="$f" python deploy/grafana/import_dashboard.py
+          done

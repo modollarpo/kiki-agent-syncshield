@@ -1,0 +1,25 @@
+name: OpenAPI Validation
+
+on:
+  push:
+    paths:
+      - 'services/syncportal/api/impact_audit_openapi.yaml'
+      - '.github/workflows/openapi-validate.yaml'
+  pull_request:
+    paths:
+      - 'services/syncportal/api/impact_audit_openapi.yaml'
+
+jobs:
+  validate-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install openapi-cli
+        run: npm install -g @redocly/cli
+      - name: Validate OpenAPI spec
+        run: |
+          npx @redocly/cli lint services/syncportal/api/impact_audit_openapi.yaml

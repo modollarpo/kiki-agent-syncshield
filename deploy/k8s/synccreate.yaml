@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: synccreate
+  labels:
+    app: synccreate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: synccreate
+  template:
+    metadata:
+      labels:
+        app: synccreate
+    spec:
+      containers:
+      - name: synccreate
+        image: synccreate:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MINIO_ROOT_USER
+          value: minio
+        - name: MINIO_ROOT_PASSWORD
+          value: minio123
+        resources:
+          limits:
+            cpu: "1"
+            memory: "2Gi"
+          requests:
+            cpu: "0.2"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: synccreate
+spec:
+  selector:
+    app: synccreate
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000

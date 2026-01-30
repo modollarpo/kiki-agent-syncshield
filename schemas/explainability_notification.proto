@@ -1,0 +1,49 @@
+syntax = "proto3";
+option go_package = "github.com/kiki-agent/schemas/explainability;explainabilitypb";
+package explainability;
+
+message ExplainabilityNotification {
+  string event_id = 1;
+  string timestamp = 2;
+  string agent = 3;
+  string recipient_type = 4; // "client" or "admin"
+  string reasoning = 5;
+  string observation = 6;
+  string action = 7;
+  string outcome = 8;
+  map<string, string> technical_details = 9;
+  FinancialImpact financial_impact = 10;
+  string recovery_path = 11;
+}
+
+message FinancialImpact {
+  double estimated_roi = 1;
+  string currency = 2;
+}
+
+// Example payloads (JSON):
+// Client Notification
+// {
+//   "event_id": "evt-20260126-001",
+//   "timestamp": "2026-01-26T12:00:00Z",
+//   "agent": "SyncCreate",
+//   "recipient_type": "client",
+//   "reasoning": "Detected 22% spike in 'Tech Enthusiast' engagement.",
+//   "observation": "Market trend: Tech Enthusiast segment up 22%.",
+//   "action": "Generated 3 cinematic videos for LinkedIn.",
+//   "outcome": "Estimated ROI: +14%",
+//   "financial_impact": { "estimated_roi": 14, "currency": "%" }
+// }
+// Admin Notification
+// {
+//   "event_id": "evt-20260126-002",
+//   "timestamp": "2026-01-26T12:01:00Z",
+//   "agent": "SyncShield",
+//   "recipient_type": "admin",
+//   "reasoning": "Brand Safety Score fell below 0.85 (detected distorted logo).",
+//   "observation": "SyncCreate video flagged for brand safety.",
+//   "action": "Automated rollback triggered.",
+//   "outcome": "Stable Asset #402 deployed.",
+//   "technical_details": { "brand_safety_score": "0.82", "threshold": "0.85" },
+//   "recovery_path": "Rollback to Stable Asset #402"
+// }

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "composite": true,
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "typeRoots": ["../../node_modules/@types", "./node_modules/@types"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*"]
+}

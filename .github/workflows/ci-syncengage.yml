@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test-syncengage:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: kiki
+          POSTGRES_PASSWORD: kiki_pass
+          POSTGRES_DB: kiki_db
+        ports:
+          - 5432:5432
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: |
+        pip install fastapi uvicorn pydantic pytest
+    - name: Run SyncEngage tests
+      working-directory: ./services/syncengage
+      run: pytest

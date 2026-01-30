@@ -1,0 +1,4 @@
+apiVersion: v2
+name: kiki-agent
+version: 0.1.0
+description: Helm chart for KIKI Agent™ multi-service deployment

@@ -1,0 +1,17 @@
+syntax = "proto3";
+option go_package = "github.com/kiki-agent/services/syncshield/internal/strategy_orchestratorpb";
+package strategy;
+
+service StrategyOrchestrator {
+  rpc Orchestrate (OrchestrateRequest) returns (OrchestrateResponse);
+}
+
+message OrchestrateRequest {
+  string campaign_id = 1;
+  repeated string user_ids = 2;
+}
+
+message OrchestrateResponse {
+  string campaign_id = 1;
+  repeated string actions = 2;
+}

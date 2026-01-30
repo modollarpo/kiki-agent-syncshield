@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ include \"kiki-agent.fullname\" . }}-syncengage"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8005
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: syncengage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include \"kiki-agent.fullname\" . }}-syncengage"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: syncengage
+  template:
+    metadata:
+      labels:
+        app: syncengage
+    spec:
+      containers:
+        - name: syncengage
+          image: "{{ .Values.syncengage.image }}"
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+            requests:
+              cpu: "0.2"
+              memory: "256Mi"

@@ -1,0 +1,28 @@
+
+syntax = "proto3";
+option go_package = "github.com/kiki-agent/shared/types/go/value;valuepb";
+
+package value;
+
+service LTVService {
+  rpc PredictLTV (PredictLTVRequest) returns (PredictLTVResponse);
+  rpc TrainLTV (TrainLTVRequest) returns (TrainLTVResponse);
+}
+
+message PredictLTVRequest {
+  string user_id = 1;
+  map<string, float> features = 2;
+}
+
+message PredictLTVResponse {
+  string user_id = 1;
+  float ltv = 2;
+}
+
+message TrainLTVRequest {
+  string dataset_path = 1;
+}
+
+message TrainLTVResponse {
+  string status = 1;
+}

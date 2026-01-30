@@ -1,0 +1,17 @@
+
+apiGateway:
+  image: kiki-agent-api-gateway:latest
+syncbrain:
+  image: kiki-agent-syncbrain:latest
+syncvalue:
+  image: kiki-agent-syncvalue:latest
+syncflow:
+  image: kiki-agent-syncflow:latest
+synccreate:
+  image: kiki-agent-synccreate:latest
+syncengage:
+  image: kiki-agent-syncengage:latest
+syncshield:
+  image: kiki-agent-syncshield:latest
+jwtSecret: supersecretkey
+openaiApiKey: "demo-key"

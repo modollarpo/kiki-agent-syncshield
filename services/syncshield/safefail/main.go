@@ -1,0 +1,35 @@
+package safefail
+
+import (
+	"context"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+)
+
+func main() {
+	guard := &SafeFailGuard{
+		ReflexEndpoint: "syncreflex:50058",
+		RollbackFunc:   RollbackAll,
+		ThresholdDrop:  -0.15,
+		ThresholdNeg:   10,
+	}
+	logger, err := NewAuditLogger("/app/audit.log")
+	if err != nil {
+		log.Fatalf("Failed to open audit log: %v", err)
+	}
+	defer logger.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go guard.Monitor(ctx)
+	StartRESTAndGRPC(guard)
+	// Graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
+	log.Println("[SafeFail] Shutting down...")
+	cancel()
+	time.Sleep(1 * time.Second)
+}

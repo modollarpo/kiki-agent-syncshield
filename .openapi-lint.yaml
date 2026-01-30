@@ -1,0 +1,21 @@
+# .openapi-lint.yaml
+# Example Redocly OpenAPI CLI config for OpenAPI 3.0
+
+apis:
+  impact_audit:
+    root: ./services/syncportal/api/impact_audit_openapi.yaml
+
+extends:
+  - recommended
+
+rules:
+  info-contact: off
+  info-license: off
+  operation-operationId: off
+  no-duplicate-keys: error
+  no-invalid-media-type-examples: warn
+  no-unresolved-refs: error
+  spec: error
+
+lint:
+  openapi-version: 3.0.0

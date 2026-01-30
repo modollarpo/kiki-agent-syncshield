@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExplainabilityNotification",
+  "type": "object",
+  "properties": {
+    "event_id": { "type": "string", "description": "Unique event identifier" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "agent": { "type": "string", "description": "Originating agent (e.g., SyncBrain, SyncCreate, SyncShield)" },
+    "recipient_type": { "type": "string", "enum": ["client", "admin"] },
+    "reasoning": { "type": "string", "description": "Short summary of the agent's reasoning" },
+    "observation": { "type": "string", "description": "Market or system observation that triggered the action" },
+    "action": { "type": "string", "description": "Action taken by the agent" },
+    "outcome": { "type": "string", "description": "Expected or actual outcome (e.g., ROI, rollback)" },
+    "technical_details": { "type": "object", "description": "Technical thresholds, scores, or metadata", "additionalProperties": true },
+    "financial_impact": { "type": "object", "properties": {
+      "estimated_roi": { "type": "number" },
+      "currency": { "type": "string" }
+    }, "required": ["estimated_roi", "currency"] },
+    "recovery_path": { "type": "string", "description": "If a rollback or intervention occurred, what was done" }
+  },
+  "required": ["event_id", "timestamp", "agent", "recipient_type", "reasoning", "action"]
+}
+
+// Example payloads:
+// Client Notification
+/*
+{
+  "event_id": "evt-20260126-001",
+  "timestamp": "2026-01-26T12:00:00Z",
+  "agent": "SyncCreate",
+  "recipient_type": "client",
+  "reasoning": "Detected 22% spike in 'Tech Enthusiast' engagement.",
+  "observation": "Market trend: Tech Enthusiast segment up 22%.",
+  "action": "Generated 3 cinematic videos for LinkedIn.",
+  "outcome": "Estimated ROI: +14%",
+  "financial_impact": { "estimated_roi": 14, "currency": "%" }
+}
+*/
+// Admin Notification
+/*
+{
+  "event_id": "evt-20260126-002",
+  "timestamp": "2026-01-26T12:01:00Z",
+  "agent": "SyncShield",
+  "recipient_type": "admin",
+  "reasoning": "Brand Safety Score fell below 0.85 (detected distorted logo).",
+  "observation": "SyncCreate video flagged for brand safety.",
+  "action": "Automated rollback triggered.",
+  "outcome": "Stable Asset #402 deployed.",
+  "technical_details": { "brand_safety_score": 0.82, "threshold": 0.85 },
+  "recovery_path": "Rollback to Stable Asset #402"
+}
+*/

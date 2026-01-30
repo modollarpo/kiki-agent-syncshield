@@ -1,0 +1,132 @@
+## version key removed for compatibility
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --entrypoints.web.address=:80
+    ports:
+      - "80:80"
+      - "8081:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+  syncbrain:
+    build: ./services/syncbrain
+    ports:
+      - "8001:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+  syncvalue:
+    build: ./services/syncvalue
+    ports:
+      - "8002:8000"
+    depends_on:
+      - postgres
+      - redis
+      - minio
+  syncflow:
+    build: ./services/syncflow
+    ports:
+      - "8003:8000"
+    depends_on:
+      - redis
+  synccreate:
+    build: ./services/synccreate
+    ports:
+      - "8004:8000"
+    depends_on:
+      - minio
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+  syncengage:
+    build: ./services/syncengage
+    ports:
+      - "8005:8000"
+    depends_on:
+      - postgres
+  syncshield:
+    build: ./services/syncshield
+    ports:
+      - "8006:8000"
+    depends_on:
+      - postgres
+  syncreflex:
+    build: ./services/syncreflex
+    ports:
+      - "8008:8000"
+    depends_on:
+      - redis
+  synctwin:
+    build: ./services/synctwin
+    ports:
+      - "8007:8000"
+    depends_on:
+      - redis
+  syncmultimodal:
+    build: ./services/syncmultimodal
+    ports:
+      - "8009:8000"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - syncbrain
+      - syncvalue
+      - syncflow
+      - synccreate
+      - syncengage
+      - syncshield
+      - syncreflex
+      - synctwin
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: kiki
+      POSTGRES_PASSWORD: kiki_pass
+      POSTGRES_DB: kiki_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+  minio:
+    image: minio/minio
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+    volumes:
+      - miniodata:/data
+volumes:
+  pgdata:
+  miniodata:
+  redisdata:

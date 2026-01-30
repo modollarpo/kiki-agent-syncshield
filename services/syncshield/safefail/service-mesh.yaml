@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: syncshield-safefail
+  labels:
+    app: syncshield-safefail
+    istio-injection: enabled
+spec:
+  selector:
+    app: syncshield-safefail
+  ports:
+    - name: rest
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - name: grpc
+      protocol: TCP
+      port: 50057
+      targetPort: 50057
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syncshield-safefail
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: syncshield-safefail
+  template:
+    metadata:
+      labels:
+        app: syncshield-safefail
+        istio-injection: enabled
+    spec:
+      containers:
+      - name: safefail
+        image: syncshield-safefail:latest
+        ports:
+        - containerPort: 8080
+        - containerPort: 50057
+        volumeMounts:
+        - name: audit-log
+          mountPath: /app/audit.log
+        - name: config
+          mountPath: /etc/safefail
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        readinessProbe:
+          httpGet:
+            path: /safefail/status
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /safefail/status
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 20
+      volumes:
+      - name: audit-log
+        emptyDir: {}

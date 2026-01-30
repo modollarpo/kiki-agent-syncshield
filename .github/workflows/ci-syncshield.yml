@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test-syncshield:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: kiki
+          POSTGRES_PASSWORD: kiki_pass
+          POSTGRES_DB: kiki_db
+        ports:
+          - 5432:5432
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+    - name: Build SyncShield
+      working-directory: ./services/syncshield/app
+      run: go build -o syncshield main.go
+    - name: Run SyncShield tests
+      working-directory: ./services/syncshield/tests
+      run: go test -v

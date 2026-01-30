@@ -1,0 +1,28 @@
+name: Import Grafana Dashboards
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'deploy/grafana/*.json'
+      - 'deploy/grafana/import_dashboard.py'
+
+jobs:
+  import-grafana-dashboards:
+    runs-on: ubuntu-latest
+    env:
+      GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+      GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install requests
+      - name: Import all dashboards
+        run: |
+          for f in deploy/grafana/*.json; do
+            DASHBOARD_JSON_PATH="$f" python deploy/grafana/import_dashboard.py
+          done

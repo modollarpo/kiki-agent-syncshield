@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "syncshield-safefail.fullname" . }}
+  labels:
+    app: syncshield-safefail
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: syncshield-safefail
+  template:
+    metadata:
+      labels:
+        app: syncshield-safefail
+        istio-injection: enabled
+    spec:
+      containers:
+      - name: safefail
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 8080
+        - containerPort: 50057
+        volumeMounts:
+        - name: audit-log
+          mountPath: /app/audit.log
+        {{- if .Values.logShipping.enabled }}
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc/fluent-bit.conf
+          subPath: fluent-bit.conf
+        {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /safefail/status
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /safefail/status
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 20
+      volumes:
+      - name: audit-log
+        emptyDir: {}
+      {{- if .Values.logShipping.enabled }}
+      - name: fluent-bit-config
+        configMap:
+          name: {{ include "syncshield-safefail.fullname" . }}-fluent-bit
+      {{- end }}

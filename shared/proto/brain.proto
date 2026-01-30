@@ -1,0 +1,21 @@
+
+syntax = "proto3";
+option go_package = "github.com/kiki-agent/shared/types/go/brain;brainpb";
+
+package brain;
+
+service StrategyOrchestrator {
+  rpc Orchestrate (OrchestrateRequest) returns (OrchestrateResponse);
+}
+
+message OrchestrateRequest {
+  string campaign_id = 1;
+  repeated string user_ids = 2;
+  map<string, string> context = 3;
+}
+
+message OrchestrateResponse {
+  string campaign_id = 1;
+  repeated string actions = 2;
+  string status = 3;
+}

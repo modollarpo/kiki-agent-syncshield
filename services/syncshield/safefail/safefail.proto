@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package safefail;
+
+service SafeFailService {
+  rpc TriggerRollback (RollbackRequest) returns (RollbackResponse);
+  rpc GetStatus (StatusRequest) returns (StatusResponse);
+}
+
+message RollbackRequest {
+  string reason = 1;
+}
+
+message RollbackResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StatusRequest {}
+
+message StatusResponse {
+  double lastScore = 1;
+  double thresholdDrop = 2;
+  int32 thresholdNeg = 3;
+  string status = 4;
+}
+
+option go_package = "github.com/kiki-agent/services/syncshield/safefail;sfpb";

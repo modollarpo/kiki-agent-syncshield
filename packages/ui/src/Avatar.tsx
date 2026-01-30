@@ -1,0 +1,38 @@
+import React from "react";
+
+export interface AvatarProps {
+  src?: string;
+  alt?: string;
+  name?: string;
+  size?: number;
+  className?: string;
+}
+
+/**
+ * Enterprise Avatar — High-Trust, Dark-Mode, Emerald Accents
+ */
+export const Avatar: React.FC<AvatarProps> = ({ src, alt, name, size = 40, className = "" }) => {
+  const initials = name
+    ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : '';
+  return (
+    <div
+      className={`inline-flex items-center justify-center rounded-full bg-slate-800 border-2 border-emerald-500/60 shadow-md font-bold text-emerald-300 select-none ${className}`}
+      style={{ width: size, height: size, fontSize: size * 0.45 }}
+      aria-label={alt || name || 'Avatar'}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt={alt || name || 'Avatar'}
+          className="w-full h-full object-cover rounded-full"
+          style={{ width: size, height: size }}
+        />
+      ) : (
+        initials || <span className="text-slate-500">?</span>
+      )}
+    </div>
+  );
+};
+
+export default Avatar;

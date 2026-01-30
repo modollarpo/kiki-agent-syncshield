@@ -1,0 +1,224 @@
+
+name: GitOps Pipeline (SyncShield SafeFail)
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'deploy/charts/syncshield-safefail/**'
+      - 'services/syncshield/safefail/**'
+      - '.github/workflows/gitops-pipeline.yaml'
+
+jobs:
+  build-push-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image_sha: ${{ steps.docker_build.outputs.image_sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Build SafeFail binary
+        run: |
+          cd services/syncshield/safefail
+          go build -o safefail main.go
+      - name: Build Docker image
+        id: docker_build
+        run: |
+          docker build -t ${{ secrets.DOCKER_REGISTRY }}/syncshield-safefail:latest .
+          IMAGE_SHA=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ secrets.DOCKER_REGISTRY }}/syncshield-safefail:latest)
+          echo "image_sha=$IMAGE_SHA" >> $GITHUB_OUTPUT
+      - name: Push Docker image
+        run: |
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login ${{ secrets.DOCKER_REGISTRY }} -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          docker push ${{ secrets.DOCKER_REGISTRY }}/syncshield-safefail:latest
+
+  update-gitops:
+    needs: build-push-image
+    runs-on: ubuntu-latest
+    outputs:
+      image_sha: ${{ needs.build-push-image.outputs.image_sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Helm values (image tag/SHA)
+        run: |
+          yq e '.image.tag = "${{ needs.build-push-image.outputs.image_sha }}"' -i deploy/charts/syncshield-safefail/values.yaml
+      - name: Commit and push Helm changes
+        run: |
+          git config --global user.email "gitops-bot@kiki.agent"
+          git config --global user.name "kiki-gitops-bot"
+          git add deploy/charts/syncshield-safefail/values.yaml || true
+          git commit -m "Update SafeFail image SHA [ci skip]" || true
+          git push || true
+
+  promote-staging:
+    needs: update-gitops
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      image_sha: ${{ needs.update-gitops.outputs.image_sha }}
+    steps:
+      - name: Trigger ArgoCD Sync (staging)
+        run: |
+          curl -X POST "$ARGOCD_SERVER/api/v1/applications/syncshield-safefail-staging/sync" \
+            -H "Authorization: Bearer $ARGOCD_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{}'
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
+      - name: Slack Notify (staging)
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Sentry Release (staging)
+        uses: getsentry/action-release@v1
+        with:
+          environment: staging
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+  canary-prod:
+    needs: promote-staging
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      image_sha: ${{ needs.promote-staging.outputs.image_sha }}
+    steps:
+      - name: Trigger ArgoCD Sync (prod-canary)
+        run: |
+          curl -X POST "$ARGOCD_SERVER/api/v1/applications/syncshield-safefail-prod-canary/sync" \
+            -H "Authorization: Bearer $ARGOCD_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{}'
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
+      - name: Slack Notify (prod-canary)
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Sentry Release (prod-canary)
+        uses: getsentry/action-release@v1
+        with:
+          environment: production
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      - name: Manual Approval (prod)
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: user1,user2
+          minimum-approvals: 1
+
+  progressive-rollout-prod:
+    needs: canary-prod
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      image_sha: ${{ needs.canary-prod.outputs.image_sha }}
+    steps:
+      - name: Progressive Traffic Shift (Argo Rollouts)
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+        run: |
+          kubectl argo rollouts set-weight syncshield-safefail-prod 25
+          sleep 60
+          kubectl argo rollouts set-weight syncshield-safefail-prod 50
+          sleep 60
+          kubectl argo rollouts set-weight syncshield-safefail-prod 100
+      # Datadog Deployment Tracking step removed: invalid action repo
+      - name: Sentry Release (progressive-prod)
+        uses: getsentry/action-release@v1
+        with:
+          environment: production
+          version: ${{ needs.canary-prod.outputs.image_sha }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      - name: Slack Notify (progressive-prod)
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  performance-monitoring-prod:
+    needs: progressive-rollout-prod
+    environment: production
+    runs-on: ubuntu-latest
+    outputs:
+      image_sha: ${{ needs.progressive-rollout-prod.outputs.image_sha }}
+    steps:
+      - name: Sentry Performance Monitoring
+        run: |
+          curl -X POST "https://sentry.io/api/0/organizations/$SENTRY_ORG/releases/" \
+            -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+              -d '{"projects": ["$SENTRY_PROJECT"], "refs": [], "deploys": [{"environment": "production"}]}'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      - name: Push Custom Prometheus Metrics
+        run: |
+          curl -X POST "$PROM_PUSHGATEWAY/metrics/job/syncshield-safefail" \
+            --data-binary @metrics.txt
+        env:
+          PROM_PUSHGATEWAY: ${{ secrets.PROM_PUSHGATEWAY }}
+        shell: bash
+      - name: Slack Notify (performance-monitoring)
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Integration Point - Other Toolchains
+        run: echo "Add integration steps for other toolchains here."
+
+  promote-prod:
+    needs: performance-monitoring-prod
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger ArgoCD Sync (prod)
+        run: |
+          curl -X POST "$ARGOCD_SERVER/api/v1/applications/syncshield-safefail-prod/sync" \
+            -H "Authorization: Bearer $ARGOCD_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{}'
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_TOKEN: ${{ secrets.ARGOCD_TOKEN }}
+      - name: Slack Notify (prod)
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Sentry Release (prod)
+        uses: getsentry/action-release@v1
+        with:
+          environment: production
+          version: ${{ needs.performance-monitoring-prod.outputs.image_sha }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+

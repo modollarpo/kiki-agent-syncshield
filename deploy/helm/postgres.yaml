@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ include \"kiki-agent.fullname\" . }}-postgres"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres
+  selector:
+    app: postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include \"kiki-agent.fullname\" . }}-postgres"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: "postgres:15"
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "kiki"
+            - name: POSTGRES_PASSWORD
+              value: "kiki_pass"
+            - name: POSTGRES_DB
+              value: "kiki_db"
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          resources:
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+            requests:
+              cpu: "0.2"
+              memory: "256Mi"
+      volumes:
+        - name: pgdata
+          emptyDir: {}

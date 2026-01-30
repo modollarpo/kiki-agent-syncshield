@@ -1,0 +1,1 @@
+# Acquisition Agent ad platform adapters package

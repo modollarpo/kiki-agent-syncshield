@@ -1,0 +1,49 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "kiki-chaos",
+    "title": "KIKI Chaos & Resilience",
+    "tags": ["chaos", "resilience", "kiki"],
+    "timezone": "browser",
+    "schemaVersion": 36,
+    "version": 1,
+    "panels": [
+      {
+        "id": 2,
+        "type": "graph",
+        "title": "Blast Radius (Events)",
+        "targets": [{"expr": "sum by(service) (chaos_injected_events)", "legendFormat": "{{service}}"}],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 3,
+        "type": "graph",
+        "title": "Bids Blocked by SyncShield",
+        "targets": [{"expr": "sum(invalid_bid_blocked_total)", "legendFormat": "Blocked"}],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 4,
+        "type": "graph",
+        "title": "SyncFlow Bid Latency (ms)",
+        "targets": [{"expr": "avg_over_time(syncflow_bid_latency_ms[5m])", "legendFormat": "Latency"}],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 5,
+        "type": "graph",
+        "title": "gRPC Error Rate",
+        "targets": [{"expr": "sum(rate(grpc_server_handled_total{code!=\"OK\"}[5m]))", "legendFormat": "gRPC Errors"}],
+        "datasource": "Prometheus"
+      },
+      {
+        "id": 6,
+        "type": "graph",
+        "title": "Creative Risk Score",
+        "targets": [{"expr": "avg_over_time(synccreate_risk_score[5m])", "legendFormat": "Risk Score"}],
+        "datasource": "Prometheus"
+      }
+    ]
+  },
+  "overwrite": true
+}

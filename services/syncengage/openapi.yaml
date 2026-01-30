@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: SyncEngage API
+  version: 1.0.0
+  description: CRM automation and engagement triggers for KIKI Agent™
+paths:
+  /trigger:
+    post:
+      summary: Trigger CRM automation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriggerRequest'
+      responses:
+        '200':
+          description: Automation triggered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  event:
+                    type: string
+  /flows:
+    get:
+      summary: List available automation flows
+      responses:
+        '200':
+          description: List of flows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flows:
+                    type: array
+                    items:
+                      type: string
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+components:
+  schemas:
+    TriggerRequest:
+      type: object
+      properties:
+        event:
+          type: string
+        user_id:
+          type: string
+        data:
+          type: object

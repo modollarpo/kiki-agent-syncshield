@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syncengage
+  labels:
+    app: syncengage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: syncengage
+  template:
+    metadata:
+      labels:
+        app: syncengage
+    spec:
+      containers:
+      - name: syncengage
+        image: syncengage:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: POSTGRES_USER
+          value: kiki
+        - name: POSTGRES_PASSWORD
+          value: kiki_pass
+        - name: POSTGRES_DB
+          value: kiki_db
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "0.2"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: syncengage
+spec:
+  selector:
+    app: syncengage
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000

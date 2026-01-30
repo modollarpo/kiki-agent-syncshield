@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "types": ["react", "react-dom"]
+  },
+  "include": [
+    "src/stories/**/*",
+    "src/**/*.stories.tsx",
+    "src/**/*.stories.ts"
+  ]
+}

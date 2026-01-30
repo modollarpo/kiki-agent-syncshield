@@ -1,0 +1,61 @@
+openapi: 3.0.0
+info:
+  title: SyncPortal Impact Audit API
+  version: 1.0.0
+  description: |
+    API for calculating projected uplift, KIKI performance fee, and net profit for onboarding prospects.
+    Integrates with SyncValue and SyncShield.
+paths:
+  /impact_audit:
+    post:
+      summary: Calculate projected uplift and fees
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpactAuditRequest'
+      responses:
+        '200':
+          description: Audit calculation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImpactAuditResponse'
+components:
+  schemas:
+    ImpactAuditRequest:
+      type: object
+      properties:
+        monthly_customers:
+          type: integer
+        ltv:
+          type: number
+        churn:
+          type: number
+      required:
+        - monthly_customers
+        - ltv
+        - churn
+    ImpactAuditResponse:
+      type: object
+      properties:
+        projected_uplift:
+          type: number
+        kiki_performance_fee:
+          type: number
+        client_net_profit:
+          type: number
+        conservative_uplift:
+          type: number
+        aggressive_uplift:
+          type: number
+        prospect_id:
+          type: string
+      required:
+        - projected_uplift
+        - kiki_performance_fee
+        - client_net_profit
+        - conservative_uplift
+        - aggressive_uplift
+        - prospect_id

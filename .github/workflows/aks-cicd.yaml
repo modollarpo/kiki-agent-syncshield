@@ -1,0 +1,52 @@
+# GitHub Actions CI/CD for Azure AKS
+# This workflow builds/pushes all service images and deploys to AKS on push to main.
+
+name: CI/CD to Azure AKS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: kiki-rg
+      ACR_NAME: kikiregistry
+      AKS_NAME: kiki-aks
+      LOCATION: eastus
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Azure CLI - Login to ACR
+      run: az acr login --name $ACR_NAME
+
+    - name: Build and push all service images
+      run: |
+        for DOCKERFILE in services/*/Dockerfile; do
+          SERVICE=$(basename $(dirname "$DOCKERFILE"))
+          docker build -t $ACR_NAME.azurecr.io/$SERVICE:latest -f services/$SERVICE/Dockerfile .
+          docker push $ACR_NAME.azurecr.io/$SERVICE:latest
+        done
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v4
+
+    - name: Get AKS credentials
+      run: az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_NAME --overwrite-existing
+
+    - name: Deploy manifests
+      run: kubectl apply -f deploy/k8s/
+
+    - name: Deploy ingress (optional)
+      run: kubectl apply -f deploy/k8s-ingress.yaml
+      continue-on-error: true

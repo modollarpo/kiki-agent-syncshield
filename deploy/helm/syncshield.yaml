@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ include \"kiki-agent.fullname\" . }}-syncshield"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8006
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: syncshield
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include \"kiki-agent.fullname\" . }}-syncshield"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: syncshield
+  template:
+    metadata:
+      labels:
+        app: syncshield
+    spec:
+      containers:
+        - name: syncshield
+          image: "{{ .Values.syncshield.image }}"
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+            requests:
+              cpu: "0.2"
+              memory: "256Mi"

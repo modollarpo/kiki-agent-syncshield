@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info:
+  title: SyncCreate API
+  version: 1.0.0
+  description: Creative generation and brand-safety API for KIKI Agent™
+paths:
+  /generate:
+    post:
+      summary: Generate creative asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreativeRequest'
+      responses:
+        '200':
+          description: Creative generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreativeResponse'
+        '400':
+          description: Invalid input
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+components:
+  schemas:
+    CreativeRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+        user_id:
+          type: string
+        style:
+          type: string
+    CreativeResponse:
+      type: object
+      properties:
+        image_url:
+          type: string
+        brand_safe:
+          type: boolean
+        reason:
+          type: string

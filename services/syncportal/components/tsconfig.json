@@ -1,0 +1,10 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    "composite": true,
+    "declaration": true,
+    "outDir": "./dist"
+  },
+  "include": ["./*"]
+}

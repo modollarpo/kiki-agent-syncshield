@@ -1,0 +1,19 @@
+syntax = "proto3";
+option go_package = "github.com/kiki_agent/shared/proto/gen";
+package bidding;
+
+service BiddingService {
+  rpc ExecuteBid (BidRequest) returns (BidResponse);
+}
+
+message BidRequest {
+  string user_id = 1;
+  string ad_slot = 2;
+  float bid_amount = 3;
+}
+
+message BidResponse {
+  string bid_id = 1;
+  bool accepted = 2;
+  string reason = 3;
+}

@@ -1,0 +1,17 @@
+@startuml
+
+actor User
+participant SyncBrain
+participant SyncValue
+participant SyncFlow
+participant SyncCreate
+participant SyncEngage
+participant SyncShield
+
+User -> SyncBrain: POST /plan-strategy
+SyncBrain -> SyncValue: POST /predict-ltv
+SyncBrain -> SyncFlow: POST /execute-bid
+SyncBrain -> SyncCreate: POST /generate
+SyncBrain -> SyncEngage: POST /trigger
+SyncBrain -> SyncShield: POST /audit
+@enduml

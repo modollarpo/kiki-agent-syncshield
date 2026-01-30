@@ -1,0 +1,22 @@
+replicaCount: 1
+image:
+  repository: syncshield-safefail
+  tag: latest
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  ports:
+    - name: rest
+      port: 8080
+      targetPort: 8080
+    - name: grpc
+      port: 50057
+      targetPort: 50057
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+logShipping:
+  enabled: true
+  backend: loki # options: loki, elasticsearch, datadog
+  lokiUrl: http://loki:3100/loki/api/v1/push

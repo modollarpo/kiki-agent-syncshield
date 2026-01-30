@@ -1,0 +1,17 @@
+# Kubernetes Ingress for KIKI Agent™
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kiki-ingress
+spec:
+  rules:
+  - host: kiki.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8080
