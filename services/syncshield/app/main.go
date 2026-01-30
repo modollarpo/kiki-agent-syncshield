@@ -3,16 +3,15 @@
 package main
 
 import (
-	"time"
+    "time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	otelgin "go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+    "github.com/gin-gonic/gin"
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
+    otelgin "go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
-	// Handler logic moved to handlers package
-
-	handlers "kiki-agent-syncshield/services/syncshield/app/handlers"
+    // Handler logic moved to handlers package
+    "kiki-agent-syncshield/app/handlers"
 )
 
 func main() {
