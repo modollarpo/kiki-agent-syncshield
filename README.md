@@ -1,3 +1,51 @@
+# KIKI Agent™ Platform
+
+KIKI Agent™ is a next-generation, cloud-native, autonomous revenue engine designed for digital businesses that demand high performance, scalability, and compliance. The platform leverages a microservices architecture, orchestrating a suite of intelligent agents—each responsible for a specialized business function—using Clean Architecture and Domain-Driven Design (DDD) principles.
+
+## Platform Overview
+
+KIKI Agent™ is built for modularity and extensibility, enabling organizations to deploy, scale, and evolve their digital operations with ease. Each agent is independently deployable, communicates via REST/gRPC, and is orchestrated through a secure API gateway and service mesh. The system is designed for seamless integration with cloud infrastructure, supporting rapid innovation and robust compliance.
+
+## Core Agents and Services
+
+- **SyncBrain:** LLM orchestration, OpenAI integration, context management, and rules/guardrails.
+- **SyncValue:** Lifetime value (LTV) prediction, dRNN, zero-shot learning, and full LTV pipeline.
+- **SyncFlow:** Real-time bidding engine (<1ms), WebSocket/gRPC adapters, rules engine, and ad network adapters.
+- **SyncCreate:** Creative generation using Stable Diffusion, brand-safety classifier.
+- **SyncEngage:** CRM automation, churn/upsell triggers, customer engagement workflows.
+- **SyncShield:** Compliance, audit logging, AES-256 encryption, data minimization, and safe-fail mechanisms.
+- **SyncBill:** Automated billing, invoicing, and financial reconciliation.
+- **SyncNotify:** Notification and alerting system for internal and external events.
+- **SyncPortal:** User and partner portal for management and analytics.
+- **SyncMultimodal:** Multimodal data processing and analytics.
+- **SyncTwin:** Digital twin modeling and simulation.
+- **SyncReflex:** Real-time feedback and adaptive control.
+- **AcquisitionAgent:** User acquisition and growth automation.
+- **ExplainabilityBroker:** Model explainability, transparency, and compliance reporting.
+- **Dashboard:** Centralized UI for monitoring, analytics, and agent management.
+
+## Key Features
+
+- **Microservices & Service Mesh:** Each agent is a microservice, enabling independent scaling, deployment, and updates.
+- **Cloud-Native:** Optimized for Azure AKS, with full CI/CD automation via GitHub Actions.
+- **Cross-Language:** Services implemented in Python, Go, and TypeScript.
+- **Secure & Compliant:** Built-in audit logging, encryption, and compliance guardrails.
+- **Observability:** Integrated with Prometheus and Grafana for monitoring and alerting.
+- **Extensible:** Easily add new agents or integrations for ad networks, CRM, analytics, and more.
+
+## Technologies
+
+- Azure AKS, Azure Container Registry, Kubernetes, Docker
+- FastAPI, Gin (Go), Next.js, PyTorch, Stable Diffusion
+- PostgreSQL, Redis, MinIO/S3
+- gRPC, REST, OpenAPI
+
+## Documentation
+
+- See `/docs/ARCHITECTURE.md` for system design and architecture.
+- See `/docs/API_REFERENCE.md` for API details.
+- See `/docs/AGENT_SPEC.md` for agent roles, protocols, and integration patterns.
+
 # KIKI Agent™ – Autonomous Revenue Engine
 
 This repository contains the full production-grade, multi-service architecture for the KIKI Agent™ Autonomous Revenue Engine. Each service is isolated, scalable, and designed for enterprise deployment.
