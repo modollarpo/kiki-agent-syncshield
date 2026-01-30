@@ -1,5 +1,7 @@
-FROM bitnami/python:3.10
+
+FROM python:3.11-slim
 WORKDIR /app
 COPY ./app /app
-RUN pip install fastapi uvicorn pydantic
+RUN pip install --no-cache-dir fastapi uvicorn pydantic
+EXPOSE 8000
 CMD ["python", "main.py"]
