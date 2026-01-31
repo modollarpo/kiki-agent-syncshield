@@ -25,14 +25,15 @@ jobs:
 
 
       - name: Build and Push All Service Images
-        env:
-          ACR_NAME: ${{ secrets.ACR_NAME }}
-        run: |
-          for DOCKERFILE in services/*/Dockerfile; do
+
             SERVICE=$(basename $(dirname "$DOCKERFILE"))
             echo "Building and pushing $SERVICE..."
             docker build -t $ACR_NAME.azurecr.io/$SERVICE:latest -f services/$SERVICE/Dockerfile .
             docker push $ACR_NAME.azurecr.io/$SERVICE:latest
+
+        permissions:
+          id-token: write
+          contents: read
           done
 
 
