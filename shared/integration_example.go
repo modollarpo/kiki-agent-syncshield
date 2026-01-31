@@ -2,8 +2,9 @@ package shared
 
 import (
 	"fmt"
-	"kiki_agent/schemas"
-	"kiki_agent/utils"
+	"kiki-agent-syncshield/schemas"
+	"kiki-agent-syncshield/utils"
+	// TODO: Update to correct module path for utils or use relative import if appropriate.
 )
 
 func ExampleUsage() {

@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: syncshield
-        image: syncshield:latest
+        image: kikiregistry.azurecr.io/syncshield:latest
         ports:
         - containerPort: 8000
         env:

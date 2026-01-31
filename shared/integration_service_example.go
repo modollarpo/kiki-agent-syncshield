@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"kiki_agent/schemas"
+	"kiki-agent-syncshield/schemas"
 	"net/http"
 )
 

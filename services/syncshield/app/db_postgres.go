@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	handlers "kiki-agent-syncshield/services/syncshield/app/handlers"
+	"kiki-agent-syncshield/app/handlers"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

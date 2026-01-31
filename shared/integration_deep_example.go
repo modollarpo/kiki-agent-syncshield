@@ -2,8 +2,8 @@ package shared
 
 import (
 	"fmt"
-
-	"kiki_agent/schemas"
+	"kiki-agent-syncshield/schemas"
+	// TODO: Update to correct module path for schemas or use relative import if appropriate.
 )
 
 func DeepIntegrationExample() {

@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	handlers "kiki-agent-syncshield/services/syncshield/app/handlers"
+	"kiki-agent-syncshield/app/handlers"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"

@@ -23,12 +23,17 @@ jobs:
       - name: Azure CLI - Login to ACR
         run: az acr login --name ${{ secrets.ACR_NAME }}
 
-      - name: Build and Push All Service Images
 
+      - name: Build and Push All Service Images
+        env:
+          ACR_NAME: ${{ secrets.ACR_NAME }}
+        run: |
+          for DOCKERFILE in services/*/Dockerfile; do
             SERVICE=$(basename $(dirname "$DOCKERFILE"))
             echo "Building and pushing $SERVICE..."
             docker build -t $ACR_NAME.azurecr.io/$SERVICE:latest -f services/$SERVICE/Dockerfile .
             docker push $ACR_NAME.azurecr.io/$SERVICE:latest
+          done
 
 
 

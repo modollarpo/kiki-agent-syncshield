@@ -12,7 +12,7 @@ import (
 
 	// Handler logic moved to handlers package
 
-	handlers "kiki-agent-syncshield/services/syncshield/app/handlers"
+	"kiki-agent-syncshield/app/handlers"
 )
 
 func main() {

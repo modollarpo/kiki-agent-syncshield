@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	handlers "kiki-agent-syncshield/services/syncshield/app/handlers"
+	"kiki-agent-syncshield/app/handlers"
 
 	"github.com/gin-gonic/gin"
 )

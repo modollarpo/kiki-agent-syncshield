@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: syncengage
-        image: syncengage:latest
+        image: kikiregistry.azurecr.io/syncengage:latest
         ports:
         - containerPort: 8000
         env:
