@@ -2,12 +2,16 @@
 
 FROM golang:1.21-alpine as builder
 WORKDIR /app
-# Copy go.mod and go.sum first for better cache usage
-COPY ./app/go.mod ./app/go.sum ./
+
+# Copy go.mod and go.sum from the service root for better cache usage
+COPY go.mod go.sum ./
 RUN go mod download
+
 # Now copy the rest of the source
-COPY ./app ./
-RUN go build -o syncshield main.go
+COPY . .
+
+# Build the SyncShield service binary from the app entrypoint
+RUN go build -o syncshield ./app
 
 FROM alpine:3.18
 WORKDIR /app
