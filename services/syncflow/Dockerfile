@@ -1,9 +1,13 @@
 # SyncFlow Dockerfile
-FROM golang:1.21-alpine as builder
+FROM golang:1.24-alpine as builder
 WORKDIR /app
 COPY ./app /app
 RUN go mod init kiki-agent-syncflow || true
 RUN go get github.com/gin-gonic/gin@v1.9.1
+RUN go get github.com/prometheus/client_golang/prometheus
+RUN go get github.com/prometheus/client_golang/prometheus/promhttp
+RUN go get go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin
+RUN go get go.opentelemetry.io/otel
 RUN go build -o syncflow main.go
 
 FROM alpine:3.18

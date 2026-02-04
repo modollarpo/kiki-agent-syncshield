@@ -78,6 +78,48 @@ func prometheusMiddleware(c *gin.Context) {
 	}
 }
 
+// Handler functions
+func ExecuteBidHandler(c *gin.Context) {
+	start := time.Now()
+	var bidReq BidRequest
+	if err := c.ShouldBindJSON(&bidReq); err != nil {
+		errorCount.WithLabelValues("/execute-bid").Inc()
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	bid := calculateBid(bidReq)
+	bidExecutions.Inc()
+	requestLatency.WithLabelValues("/execute-bid").Observe(time.Since(start).Seconds())
+	c.JSON(http.StatusOK, bid)
+}
+
+func AllocateBudget(c *gin.Context) {
+	start := time.Now()
+	var budgetReq struct {
+		CampaignID string  `json:"campaign_id"`
+		Amount     float64 `json:"amount"`
+	}
+	if err := c.ShouldBindJSON(&budgetReq); err != nil {
+		errorCount.WithLabelValues("/allocate-budget").Inc()
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	requestLatency.WithLabelValues("/allocate-budget").Observe(time.Since(start).Seconds())
+	c.JSON(http.StatusOK, gin.H{
+		"campaign_id":      budgetReq.CampaignID,
+		"allocated_amount": budgetReq.Amount,
+		"status":           "success",
+	})
+}
+
+func HealthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "healthy",
+		"service": "syncflow",
+		"version": "1.0.0",
+	})
+}
+
 // Worker pool for high concurrency
 const workerCount = 16
 
@@ -94,10 +136,7 @@ func startWorkerPool() {
 			for job := range jobQueue {
 				start := time.Now()
 				// Zero-allocation JSON parsing (placeholder)
-				var bidReq struct {
-					UserID, AdSlot string
-					BidAmount      float64
-				}
+				var bidReq BidRequest
 				_ = json.NewDecoder(job.Request.Body).Decode(&bidReq)
 				// <1ms bid calculation (mock)
 				bid := calculateBid(bidReq)
@@ -108,16 +147,19 @@ func startWorkerPool() {
 	}
 }
 
+type BidRequest struct {
+	UserID    string  `json:"user_id"`
+	AdSlot    string  `json:"ad_slot"`
+	BidAmount float64 `json:"bid_amount"`
+}
+
 type BidResult struct {
 	BidID    string `json:"bid_id"`
 	Accepted bool   `json:"accepted"`
 	Reason   string `json:"reason"`
 }
 
-func calculateBid(_ struct {
-	UserID, AdSlot string
-	BidAmount      float64
-}) BidResult {
+func calculateBid(req BidRequest) BidResult {
 	// TODO: Real logic, <1ms
 	return BidResult{BidID: "bid123", Accepted: true, Reason: "ok"}
 }
