@@ -19,4 +19,6 @@ bin/
 .idea/
 .vscode/
 *.log
+logs/*.out
+logs/*.err
 coverage/

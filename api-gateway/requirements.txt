@@ -1,3 +1,8 @@
 fastapi
 uvicorn
 httpx
+PyJWT
+prometheus-client
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-fastapi

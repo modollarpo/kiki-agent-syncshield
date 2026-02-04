@@ -46,6 +46,39 @@ KIKI Agent™ is built for modularity and extensibility, enabling organizations 
 - See `/docs/API_REFERENCE.md` for API details.
 - See `/docs/AGENT_SPEC.md` for agent roles, protocols, and integration patterns.
 
+## Local Development (Docker Compose)
+
+Prereqs:
+
+- A working Docker daemon (Docker Desktop, Rancher Desktop, etc.). The VS Code Docker extension is a UI on top of the daemon; it can’t run containers by itself.
+- Repo root `.env` populated (this repo includes a root `.env.example` you can copy from).
+
+### VS Code: Docker Extension (`ms-azuretools.vscode-docker`)
+
+1) Start Docker Desktop and wait for it to report “Running”.
+2) Open this repo root in VS Code.
+3) In the **Docker** side panel, confirm you can see **Containers** / **Images** (if it shows “cannot connect”, the daemon isn’t running).
+4) Right-click `docker-compose.yml` → **Compose Up** (or Command Palette → “Docker: Compose Up”).
+	- Note: `traefik` is behind the optional `edge` profile. Bring it up only when needed.
+5) Verify the gateway:
+
+- `http://localhost:8080/healthz`
+- `http://localhost:8080/health/services` (uses `INTERNAL_API_KEY` if set)
+
+### Required environment values
+
+For a clean local compose run (no missing-var warnings), set at least:
+
+- `INTERNAL_API_KEY`
+- `JWT_SECRET`
+- `JWT_ALGORITHM` (default `HS256`)
+- `CORS_ALLOW_ORIGINS` (e.g. `http://localhost:3001` for the dashboard)
+
+### Optional: enable Traefik (edge profile)
+
+- CLI: `docker compose --profile edge up -d --build`
+- Or set `COMPOSE_PROFILES=edge` in your environment before running Compose.
+
 This repository contains the full production-grade, multi-service architecture for the KIKI Agent™ Autonomous Revenue Engine. Each service is isolated, scalable, and designed for enterprise deployment.
 
 ## Services

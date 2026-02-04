@@ -1,14 +1,15 @@
 
-import json
-import time
+import os
 import redis
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional, Dict
 from notification_router import NotificationRouter
 
 app = FastAPI()
-r = redis.Redis(host='localhost', port=6379, db=0)
+redis_host = os.getenv("REDIS_HOST", "redis")
+redis_port = int(os.getenv("REDIS_PORT", "6379"))
+r = redis.Redis(host=redis_host, port=redis_port, db=0)
 router = NotificationRouter()
 
 class FinancialImpact(BaseModel):
@@ -45,6 +46,12 @@ def get_events():
     events = r.xrevrange('kiki:explainability:events', count=10)
     return [dict(e[1]) for e in events]
 
+
+@app.get("/healthz")
+def healthz():
+	return {"status": "ok"}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8089)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

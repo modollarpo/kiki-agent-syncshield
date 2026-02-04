@@ -2,6 +2,7 @@
 services:
   traefik:
     image: traefik:v2.10
+    profiles: ["edge"]
     command:
       - --api.insecure=true
       - --providers.docker=true
@@ -11,6 +12,7 @@ services:
       - "8081:8080" # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
   syncbrain:
     build: ./services/syncbrain
     ports:
@@ -20,6 +22,12 @@ services:
     depends_on:
       - postgres
       - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
   syncvalue:
     build: ./services/syncvalue
     ports:
@@ -28,12 +36,24 @@ services:
       - postgres
       - redis
       - minio
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
   syncflow:
     build: ./services/syncflow
     ports:
       - "8003:8000"
     depends_on:
       - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
   synccreate:
     build: ./services/synccreate
     ports:
@@ -50,30 +70,97 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 15s
+      timeout: 4s
+      retries: 15
   syncengage:
     build: ./services/syncengage
     ports:
       - "8005:8000"
     depends_on:
       - postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
   syncshield:
     build: ./services/syncshield
     ports:
       - "8006:8000"
     depends_on:
       - postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  syncportal:
+    build: ./services/syncportal
+    ports:
+      - "8010:8000"
+    depends_on:
+      - postgres
+      - syncshield
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
   syncreflex:
     build: ./services/syncreflex
     ports:
       - "8008:8000"
     depends_on:
       - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
   synctwin:
     build: ./services/synctwin
     ports:
       - "8007:8000"
     depends_on:
       - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  explainability-broker:
+    build: ./services/explainability_broker
+    ports:
+      - "8089:8000"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  acquisitionagent:
+    build: ./services/acquisitionagent
+    ports:
+      - "8012:8000"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
   syncmultimodal:
     build: ./services/syncmultimodal
     ports:
@@ -87,10 +174,21 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).read()"]
+      interval: 15s
+      timeout: 4s
+      retries: 15
   api-gateway:
     build: ./api-gateway
     ports:
       - "8080:8080"
+    environment:
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS}
     depends_on:
       - syncbrain
       - syncvalue
@@ -100,6 +198,15 @@ services:
       - syncshield
       - syncreflex
       - synctwin
+      - syncportal
+      - explainability-broker
+      - acquisitionagent
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
   postgres:
     image: postgres:15
     environment:
@@ -110,12 +217,24 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
   redis:
     image: redis:7
     ports:
       - "6379:6379"
     volumes:
       - redisdata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
   minio:
     image: minio/minio
     command: server /data
@@ -126,6 +245,7 @@ services:
       - "9000:9000"
     volumes:
       - miniodata:/data
+    restart: unless-stopped
 volumes:
   pgdata:
   miniodata:

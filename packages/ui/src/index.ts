@@ -10,7 +10,7 @@ export * from './components/Sidebar';
 export * from './components/Notification';
 export * from './components/Loader';
 export * from './components/Avatar';
-export * from './components/Stepper';
+export * from './Stepper';
 export * from './charts/LTVChart';
 // Legacy/feature-specific exports
 export { default as OnboardingChecklist } from './OnboardingChecklist';

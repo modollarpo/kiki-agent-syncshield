@@ -4,6 +4,7 @@ import { colors, radii, spacing, typography } from '../theme';
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
 }
 
 const sizeMap = {
@@ -16,6 +17,8 @@ export const Button: React.FC<ButtonProps> = ({
   children,
   variant = 'primary',
   size = 'md',
+  loading = false,
+  disabled,
   style,
   ...props
 }) => {
@@ -47,6 +50,7 @@ export const Button: React.FC<ButtonProps> = ({
       border = 'none';
   }
   const { padding, fontSize } = sizeMap[size];
+  const isDisabled = Boolean(disabled || loading);
   return (
     <button
       style={{
@@ -58,13 +62,47 @@ export const Button: React.FC<ButtonProps> = ({
         fontWeight: typography.headings.fontWeight,
         fontSize,
         padding,
-        cursor: 'pointer',
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        opacity: isDisabled ? 0.7 : 1,
         transition: 'background 0.2s',
         ...style,
       }}
+      disabled={isDisabled}
+      aria-busy={loading || undefined}
       {...props}
     >
-      {children}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {loading && (
+          <svg
+            aria-hidden
+            width={14}
+            height={14}
+            viewBox="0 0 50 50"
+            style={{ display: 'block' }}
+          >
+            <circle
+              cx="25"
+              cy="25"
+              r="20"
+              fill="none"
+              stroke="rgba(255,255,255,0.75)"
+              strokeWidth="6"
+              strokeDasharray="80 40"
+              strokeLinecap="round"
+            >
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 25 25"
+                to="360 25 25"
+                dur="0.8s"
+                repeatCount="indefinite"
+              />
+            </circle>
+          </svg>
+        )}
+        <span>{children}</span>
+      </span>
     </button>
   );
 };

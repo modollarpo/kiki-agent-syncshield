@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+"use client";
 
-interface ImpactAuditResult {
+import React, { useEffect, useState } from "react";
+
+export interface ImpactAuditResult {
 	projected_uplift: number;
 	kiki_performance_fee: number;
 	client_net_profit: number;
@@ -9,13 +11,71 @@ interface ImpactAuditResult {
 	prospect_id: string;
 }
 
-export const ImpactAuditForm: React.FC<{}> = () => {
+export type ImpactAuditFormProps = {
+	onSuccess?: (result: ImpactAuditResult) => void;
+	onError?: (message: string) => void;
+	storageKey?: string;
+	persist?: boolean;
+	className?: string;
+};
+
+export const ImpactAuditForm: React.FC<ImpactAuditFormProps> = ({
+	onSuccess,
+	onError,
+	storageKey = "kiki:impactAuditForm",
+	persist = true,
+	className = "",
+}) => {
 	const [monthlyCustomers, setMonthlyCustomers] = useState(1000);
 	const [ltv, setLtv] = useState(120.0);
 	const [churn, setChurn] = useState(8.0);
 	const [result, setResult] = useState<ImpactAuditResult | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (!persist) return;
+		if (typeof window === "undefined") return;
+		try {
+			const raw = window.localStorage.getItem(storageKey);
+			if (!raw) return;
+			const parsed = JSON.parse(raw) as Partial<{
+				monthlyCustomers: number;
+				ltv: number;
+				churn: number;
+				result: ImpactAuditResult | null;
+			}>;
+			if (typeof parsed.monthlyCustomers === "number" && Number.isFinite(parsed.monthlyCustomers)) {
+				setMonthlyCustomers(parsed.monthlyCustomers);
+			}
+			if (typeof parsed.ltv === "number" && Number.isFinite(parsed.ltv)) {
+				setLtv(parsed.ltv);
+			}
+			if (typeof parsed.churn === "number" && Number.isFinite(parsed.churn)) {
+				setChurn(parsed.churn);
+			}
+			if (parsed.result && typeof parsed.result === "object") {
+				setResult(parsed.result as ImpactAuditResult);
+				onSuccess?.(parsed.result as ImpactAuditResult);
+			}
+		} catch {
+			// ignore
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [persist, storageKey]);
+
+	useEffect(() => {
+		if (!persist) return;
+		if (typeof window === "undefined") return;
+		try {
+			window.localStorage.setItem(
+				storageKey,
+				JSON.stringify({ monthlyCustomers, ltv, churn, result })
+			);
+		} catch {
+			// ignore
+		}
+	}, [monthlyCustomers, ltv, churn, result, persist, storageKey]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -35,15 +95,24 @@ export const ImpactAuditForm: React.FC<{}> = () => {
 			if (!res.ok) throw new Error("API error");
 			const data = await res.json();
 			setResult(data);
+			onSuccess?.(data);
 		} catch (err: any) {
-			setError(err.message || "Unknown error");
+			const message = err.message || "Unknown error";
+			setError(message);
+			onError?.(message);
 		} finally {
 			setLoading(false);
 		}
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className="p-8 bg-slate-900 border-2 border-emerald-500 rounded-2xl shadow-2xl space-y-6">
+		<form
+			onSubmit={handleSubmit}
+			className={
+				"p-8 bg-slate-900 border-2 border-emerald-500 rounded-2xl shadow-2xl space-y-6 " +
+				className
+			}
+		>
 			<h3 className="text-xl font-bold text-white mb-6">Impact Audit</h3>
 			<div className="grid grid-cols-3 gap-6">
 				<div>

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -57,5 +58,9 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	http.HandleFunc("/simulate", simulationHandler)
 	http.HandleFunc("/healthz", healthHandler)
-	http.ListenAndServe(":8007", nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
+	http.ListenAndServe(":"+port, nil)
 }
