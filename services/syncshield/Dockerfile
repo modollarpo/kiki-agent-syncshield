@@ -1,6 +1,6 @@
 # SyncShield Dockerfile
 
-FROM golang:1.21-alpine as builder
+FROM golang:1.24-alpine as builder
 WORKDIR /app
 
 # Copy go.mod and go.sum from the service root for better cache usage
