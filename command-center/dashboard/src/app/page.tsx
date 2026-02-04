@@ -5,6 +5,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { NeuralLog } from "@/components/NeuralLog";
 import { useEffect, useState } from "react";
 
+type Preferences = {
+	theme: string;
+	notifications: boolean;
+	layout: string;
+	weatherLocation: string;
+};
+
+type User = {
+	name: string;
+	role: string;
+	settings?: Partial<Preferences>;
+};
+
 const navLinks = [
 	{ name: "Dashboard", href: "/" },
 	{ name: "Analytics", href: "/analytics" },
@@ -19,13 +32,13 @@ const integrations = [
 	{ name: "Ads", icon: "📢", api: "http://localhost:8004/health" },
 ];
 
-const users = [
+const users: User[] = [
 	{ name: "Alex", role: "Architect", settings: { theme: "dark", notifications: true } },
 	{ name: "Jordan", role: "Ops", settings: { theme: "light", notifications: false } },
 	{ name: "Morgan", role: "Analyst", settings: { theme: "light", notifications: true } },
 ];
 
-const defaultPreferences = {
+const defaultPreferences: Preferences = {
 	theme: "light",
 	notifications: true,
 	layout: "grid",
@@ -33,7 +46,7 @@ const defaultPreferences = {
 };
 
 export default function HomePage() {
-	const [user, setUser] = useState(users[0]);
+	const [user, setUser] = useState<User>(users[0]);
 	const [stats, setStats] = useState([
 		{ label: "Active Users", value: 0 },
 		{ label: "Revenue (YTD)", value: "$0" },
@@ -42,13 +55,20 @@ export default function HomePage() {
 	]);
 	const [integrationStatus, setIntegrationStatus] = useState<Record<string, string>>({});
 	const [health, setHealth] = useState({ cpu: 0, mem: 0, disk: 0 });
-	const [recent, setRecent] = useState([]);
-	const [tasks, setTasks] = useState([]);
-	const [notifications, setNotifications] = useState([]);
-	const [preferences, setPreferences] = useState(user.settings || defaultPreferences);
-	const [weather, setWeather] = useState({ temp: "--", desc: "Loading..." });
-	const [calendar, setCalendar] = useState([]);
-	const [apiStatus, setApiStatus] = useState({});
+	const [recent, setRecent] = useState<string[]>([]);
+	const [tasks, setTasks] = useState<Array<{ task: string; done: boolean }>>([]);
+	const [notifications, setNotifications] = useState<string[]>([]);
+	const [preferences, setPreferences] = useState<Preferences>({
+		...defaultPreferences,
+		...(user.settings ?? {}),
+	});
+
+	useEffect(() => {
+		setPreferences({ ...defaultPreferences, ...(user.settings ?? {}) });
+	}, [user]);
+	const [weather, setWeather] = useState<{ temp: string; desc: string }>({ temp: "--", desc: "Loading..." });
+	const [calendar, setCalendar] = useState<string[]>([]);
+	const [apiStatus, setApiStatus] = useState<Record<string, string>>({});
 
 	useEffect(() => {
 		// Fetch real stats
@@ -77,7 +97,7 @@ export default function HomePage() {
 			.then(res => res.json())
 			.then(d => setTasks(d.tasks || []));
 		// Fetch notifications
-		if (user.settings.notifications) {
+		if (preferences.notifications) {
 			fetch(`/api/notifications?user=${user.name}`)
 				.then(res => res.json())
 				.then(d => setNotifications(d.notifications || []));

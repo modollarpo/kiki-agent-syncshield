@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "services/dashboard"
+    "services/dashboard",
+    "command-center/dashboard"
   ],
   "dependencies": {
     "chart.js": "^4.5.1",

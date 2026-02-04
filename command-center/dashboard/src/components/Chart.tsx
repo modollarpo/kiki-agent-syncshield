@@ -47,10 +47,11 @@ function exportCSV(data: any[], metrics: string[]) {
   document.body.removeChild(link);
 }
 
-function exportPNG(ref: React.RefObject<HTMLDivElement>) {
-  if (!ref.current) return;
+function exportPNG(ref: React.RefObject<HTMLDivElement | null>) {
+  const element = ref.current;
+  if (!element) return;
   import("html2canvas").then(({ default: html2canvas }) => {
-    html2canvas(ref.current).then((canvas) => {
+    html2canvas(element).then((canvas) => {
       const link = document.createElement("a");
       link.download = "chart.png";
       link.href = canvas.toDataURL();
@@ -142,9 +143,7 @@ export function Chart({
               data={data}
               onClick={(e) =>
                 setActiveIndex(
-                  e && e.activeTooltipIndex !== undefined
-                    ? e.activeTooltipIndex
-                    : null
+                  e && typeof e.activeTooltipIndex === "number" ? e.activeTooltipIndex : null
                 )
               }
             >
@@ -170,9 +169,7 @@ export function Chart({
               data={data}
               onClick={(e) =>
                 setActiveIndex(
-                  e && e.activeTooltipIndex !== undefined
-                    ? e.activeTooltipIndex
-                    : null
+                  e && typeof e.activeTooltipIndex === "number" ? e.activeTooltipIndex : null
                 )
               }
             >
