@@ -13,5 +13,6 @@ RUN go build -o syncflow main.go
 FROM alpine:3.18
 WORKDIR /app
 COPY --from=builder /app/syncflow /app/syncflow
+RUN chmod +x /app/syncflow
 EXPOSE 8000
 CMD ["/app/syncflow"]

@@ -16,7 +16,7 @@ var db *gorm.DB
 func InitDB() error {
 	dsn := os.Getenv("SYNC_DB_DSN")
 	if dsn == "" {
-		dsn = "host=localhost user=postgres password=postgres dbname=syncshield port=5432 sslmode=disable"
+		dsn = "host=postgres user=postgres password=kiki_pass dbname=syncshield port=5432 sslmode=disable"
 	}
 	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {

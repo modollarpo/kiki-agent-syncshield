@@ -2,7 +2,7 @@
 FROM python:3.11-slim
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir fastapi uvicorn redis pydantic
+RUN pip install --no-cache-dir fastapi uvicorn redis pydantic grpcio grpcio-tools
 EXPOSE 8000
 ENV PORT=8000
 ENV REDIS_HOST=redis
