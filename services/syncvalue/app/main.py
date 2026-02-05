@@ -13,18 +13,18 @@ from ltv_dRNN import LTVdRNN
 from feature_extractor import extract_features
 from training_loop import train_model
 from inference import predict as model_predict
-from services.syncvalue.app.handlers_ltv import router as ltv_router
+# from services.syncvalue.app.handlers_ltv import router as ltv_router
 import threading
 import grpc
 from concurrent import futures
-from shared.types.python.value import value_pb2_grpc, value_pb2
-from services.syncvalue.internal.usecases.ltv_inference import predict_ltv
+# from shared.types.python.value import value_pb2_grpc, value_pb2
+# from services.syncvalue.internal.usecases.ltv_inference import predict_ltv
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 import jwt, uuid
 from datetime import datetime, timedelta
-from fastapi_limiter import FastAPILimiter, RateLimiter
-import aioredis
+# from fastapi_limiter import FastAPILimiter, RateLimiter  # Rate limiting disabled for now
+# import aioredis
 
 # Prometheus metrics
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -51,15 +51,65 @@ ERROR_COUNT = Counter("syncvalue_errors_total", "Total errors", ["endpoint"])
 LTV_PREDICTIONS = Counter("syncvalue_ltv_predictions_total", "Total LTV predictions")
 REQUEST_LATENCY = Histogram("syncvalue_request_latency_seconds", "Request latency", ["endpoint"])
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("syncvalue")
 
-# Model config (for demo)
-MODEL_PATH = os.getenv("LTV_MODEL_PATH", "ltv_model.pt")
-INPUT_SIZE = 10
-HIDDEN_SIZE = 16
+# Initialize configuration
+from shared.config import SyncValueConfig
+config = SyncValueConfig()
+logging.basicConfig(level=getattr(logging, config.log_level.upper(), logging.INFO))
+
+# Initialize enterprise components
+from shared.health import HealthChecker, ServiceHealth, DependencyHealth, HealthStatus
+health_checker = HealthChecker(service_name=config.service_name, version=config.version)
+
+# Model config from environment
+MODEL_PATH = config.ltv_model_path
+INPUT_SIZE = config.model_input_size
+HIDDEN_SIZE = config.model_hidden_size
 NUM_LAYERS = 2
 OUTPUT_SIZE = 1
+
+# Enhanced health check
+async def check_pytorch_model():
+    """Check if PyTorch model is available"""
+    import time
+    start = time.time()
+    try:
+        if os.path.exists(MODEL_PATH):
+            status = HealthStatus.HEALTHY
+            error = None
+        else:
+            status = HealthStatus.DEGRADED
+            error = "Model file not found, will train on first request"
+        
+        return DependencyHealth(
+            name="pytorch_model",
+            status=status,
+            response_time_ms=round((time.time() - start) * 1000, 2),
+            error=error,
+            last_check=datetime.utcnow().isoformat() + "Z"
+        )
+    except Exception as e:
+        return DependencyHealth(
+            name="pytorch_model",
+            status=HealthStatus.UNHEALTHY,
+            response_time_ms=round((time.time() - start) * 1000, 2),
+            error=str(e),
+            last_check=datetime.utcnow().isoformat() + "Z"
+        )
+
+health_checker.register_dependency("pytorch_model", check_pytorch_model)
+
+@app.get("/health", response_model=ServiceHealth, tags=["monitoring"])
+async def enhanced_health():
+    """Enhanced health check with PyTorch model status and metrics"""
+    metrics = {
+        "ltv_predictions": LTV_PREDICTIONS._value.get(),
+        "model_path": MODEL_PATH,
+        "model_loaded": os.path.exists(MODEL_PATH),
+        "pytorch_version": torch.__version__
+    }
+    return await health_checker.get_health(metrics=metrics)
 
 def load_model():
     model = LTVdRNN(INPUT_SIZE, HIDDEN_SIZE, NUM_LAYERS, OUTPUT_SIZE)
@@ -96,34 +146,34 @@ def predict_ltv(req: PredictRequest):
     REQUEST_COUNT.labels(endpoint="/predict-ltv", method="POST").inc()
     with REQUEST_LATENCY.labels(endpoint="/predict-ltv").time():
         with tracer.start_as_current_span("predict_ltv"):
-    try:
-        # Validate features strictly before model logic
-        if not isinstance(req.features, dict) or not req.features:
-            ERROR_COUNT.labels(endpoint="/predict-ltv").inc()
-            raise HTTPException(status_code=400, detail="Features must be a non-empty dict.")
-        feats = extract_features(req.features)
-        # Ensure features are a 2D tensor: (batch, seq_len, input_size)
-        # For demo, treat as batch=1, seq_len=1, input_size=INPUT_SIZE
-        feat_vec = list(feats.values())[:INPUT_SIZE] + [0.0]*(INPUT_SIZE - len(feats))
-        x = torch.tensor([ [feat_vec] ], dtype=torch.float32)  # shape: (1,1,INPUT_SIZE)
-        model = load_model()
-        y_pred = model_predict(model, x)
-        ltv = float(y_pred.item())
-        logger.info(f"Predicted LTV for {req.user_id}: {ltv}")
-        LTV_PREDICTIONS.inc()
-        return {"ltv": ltv, "user_id": req.user_id}
-    except HTTPException as he:
-        logger.error(f"Validation error: {he.detail}")
-        ERROR_COUNT.labels(endpoint="/predict-ltv").inc()
-        raise
-    except ValidationError as ve:
-        logger.error(f"Validation error: {ve}")
-        ERROR_COUNT.labels(endpoint="/predict-ltv").inc()
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        logger.error(f"Model error: {e}")
-        ERROR_COUNT.labels(endpoint="/predict-ltv").inc()
-        raise HTTPException(status_code=500, detail="Model error.")
+            try:
+                # Validate features strictly before model logic
+                if not isinstance(req.features, dict) or not req.features:
+                    ERROR_COUNT.labels(endpoint="/predict-ltv").inc()
+                    raise HTTPException(status_code=400, detail="Features must be a non-empty dict.")
+                feats = extract_features(req.features)
+                # Ensure features are a 2D tensor: (batch, seq_len, input_size)
+                # For demo, treat as batch=1, seq_len=1, input_size=INPUT_SIZE
+                feat_vec = list(feats.values())[:INPUT_SIZE] + [0.0]*(INPUT_SIZE - len(feats))
+                x = torch.tensor([ [feat_vec] ], dtype=torch.float32)  # shape: (1,1,INPUT_SIZE)
+                model = load_model()
+                y_pred = model_predict(model, x)
+                ltv = float(y_pred.item())
+                logger.info(f"Predicted LTV for {req.user_id}: {ltv}")
+                LTV_PREDICTIONS.inc()
+                return {"ltv": ltv, "user_id": req.user_id}
+            except HTTPException as he:
+                logger.error(f"Validation error: {he.detail}")
+                ERROR_COUNT.labels(endpoint="/predict-ltv").inc()
+                raise
+            except ValidationError as ve:
+                logger.error(f"Validation error: {ve}")
+                ERROR_COUNT.labels(endpoint="/predict-ltv").inc()
+                raise HTTPException(status_code=400, detail=str(ve))
+            except Exception as e:
+                logger.error(f"Model error: {e}")
+                ERROR_COUNT.labels(endpoint="/predict-ltv").inc()
+                raise HTTPException(status_code=500, detail="Model error.")
 
 @app.post("/train", response_model=TrainResponse, responses={
     200: {"description": "Training started", "content": {"application/json": {"example": {"status": "training_started", "dataset": "/data/ltv.csv"}}}},
@@ -141,7 +191,7 @@ def train(req: TrainRequest):
 
 
 # Include the new LTV router
-app.include_router(ltv_router)
+# app.include_router(ltv_router)  # Commented out - router not available in container
 
 # Prometheus /metrics endpoint
 @app.get("/metrics")
@@ -152,25 +202,25 @@ def prometheus_metrics():
 def health_check():
     return {"status": "ok"}
 
-# gRPC server implementation
-class LTVServiceServicer(value_pb2_grpc.LTVServiceServicer):
-    def PredictLTV(self, request, context):
-        ltv = predict_ltv(dict(request.features))
-        return value_pb2.PredictLTVResponse(user_id=request.user_id, ltv=ltv)
-    def TrainLTV(self, request, context):
-        # TODO: Implement training logic
-        return value_pb2.TrainLTVResponse(status="training started")
+# gRPC server implementation (disabled - missing protobuf files)
+# class LTVServiceServicer(value_pb2_grpc.LTVServiceServicer):
+#     def PredictLTV(self, request, context):
+#         ltv = predict_ltv(dict(request.features))
+#         return value_pb2.PredictLTVResponse(user_id=request.user_id, ltv=ltv)
+#     def TrainLTV(self, request, context):
+#         # TODO: Implement training logic
+#         return value_pb2.TrainLTVResponse(status="training started")
 
-def serve_grpc():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    value_pb2_grpc.add_LTVServiceServicer_to_server(LTVServiceServicer(), server)
-    server.add_insecure_port('[::]:50052')
-    server.start()
-    server.wait_for_termination()
+# def serve_grpc():
+#     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+#     value_pb2_grpc.add_LTVServiceServicer_to_server(LTVServiceServicer(), server)
+#     server.add_insecure_port('[::]:50052')
+#     server.start()
+#     server.wait_for_termination()
 
-@app.on_event("startup")
-def start_grpc_server():
-    threading.Thread(target=serve_grpc, daemon=True).start()
+# @app.on_event("startup")
+# def start_grpc_server():
+#     threading.Thread(target=serve_grpc, daemon=True).start()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 USER_DB = {"admin": {"username": "admin", "password": pwd_context.hash("adminpass"), "role": "admin"}}
@@ -183,8 +233,9 @@ AUDIT_LOG = []
 
 @app.on_event("startup")
 async def startup():
-    redis = await aioredis.create_redis_pool("redis://localhost")
-    await FastAPILimiter.init(redis)
+    # redis = await aioredis.create_redis_pool("redis://localhost")  # Rate limiting disabled
+    # await FastAPILimiter.init(redis)  # Rate limiting disabled
+    logger.info("SyncValue LTV service ready.")
 
 security = HTTPBearer()
 
@@ -209,7 +260,7 @@ def register(username: str = Body(...), password: str = Body(...), role: str = B
     USER_DB[username] = {"username": username, "password": pwd_context.hash(password), "role": role}
     return {"msg": "User registered"}
 
-@app.post("/login", dependencies=[RateLimiter(times=5, seconds=60)])
+@app.post("/login")  # Rate limiting disabled
 def login(username: str = Body(...), password: str = Body(...)):
     user = USER_DB.get(username)
     if not user or not pwd_context.verify(password, user["password"]):

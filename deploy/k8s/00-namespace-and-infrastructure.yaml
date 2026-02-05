@@ -1,0 +1,159 @@
+# KIKI Agent™ Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kiki-agent
+  labels:
+    name: kiki-agent
+    environment: production
+---
+# ConfigMap for shared configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiki-config
+  namespace: kiki-agent
+data:
+  environment: "production"
+  log_level: "INFO"
+  enable_metrics: "true"
+  enable_tracing: "true"
+  shutdown_timeout: "30"
+  db_pool_size: "20"
+  db_max_overflow: "40"
+  redis_max_connections: "100"
+---
+# Secret placeholder (USE VAULT IN PRODUCTION!)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kiki-secrets
+  namespace: kiki-agent
+type: Opaque
+stringData:
+  database-url: "postgresql://kiki:CHANGEME@postgres:5432/kiki_db"
+  redis-url: "redis://redis:6379/0"
+  jwt-secret: "CHANGE-THIS-SECRET-KEY-IN-PRODUCTION"
+  internal-api-key: "CHANGE-THIS-INTERNAL-KEY"
+  openai-api-key: "sk-CHANGE-THIS"
+  encryption-key: "CHANGE-THIS-32-BYTE-ENCRYPTION-KEY!!"
+  stability-api-key: "CHANGE-THIS"
+  runway-api-key: "CHANGE-THIS"
+---
+# PostgreSQL StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: kiki-agent
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "kiki"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kiki-secrets
+              key: database-password
+        - name: POSTGRES_DB
+          value: "kiki_db"
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: kiki-agent
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+---
+# Redis StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: kiki-agent
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: kiki-agent
+spec:
+  clusterIP: None
+  selector:
+    app: redis
+  ports:
+  - port: 6379

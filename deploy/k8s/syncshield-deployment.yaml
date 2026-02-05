@@ -1,0 +1,129 @@
+# Kubernetes Deployment for SyncShield
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syncshield
+  namespace: kiki-agent
+  labels:
+    app: syncshield
+    component: compliance
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: syncshield
+  template:
+    metadata:
+      labels:
+        app: syncshield
+        component: compliance
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8006"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: syncshield
+        image: kiki-agent/syncshield:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8006
+          protocol: TCP
+        env:
+        - name: SERVICE_NAME
+          value: "syncshield"
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: kiki-config
+              key: environment
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: kiki-secrets
+              key: database-url
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: kiki-secrets
+              key: encryption-key
+        - name: ENABLE_AUDIT_LOGGING
+          value: "true"
+        - name: AUDIT_LOG_RETENTION_DAYS
+          value: "90"
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8006
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8006
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15"]
+        securityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: syncshield
+  namespace: kiki-agent
+  labels:
+    app: syncshield
+spec:
+  type: ClusterIP
+  selector:
+    app: syncshield
+  ports:
+  - name: http
+    port: 8006
+    targetPort: 8006
+    protocol: TCP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: syncshield-hpa
+  namespace: kiki-agent
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: syncshield
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75

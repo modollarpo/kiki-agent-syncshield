@@ -4,3 +4,5 @@ pydantic
 torch
 scikit-learn
 pytorch-lightning
+grpcio
+grpcio-tools

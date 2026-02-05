@@ -2,3 +2,8 @@ fastapi
 uvicorn
 pydantic
 openai
+grpcio
+grpcio-tools
+protobuf
+passlib
+httpx

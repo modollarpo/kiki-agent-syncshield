@@ -6,3 +6,5 @@ prometheus-client
 opentelemetry-api
 opentelemetry-sdk
 opentelemetry-instrumentation-fastapi
+grpcio
+grpcio-tools

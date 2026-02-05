@@ -5,6 +5,7 @@ SyncEngage – CRM + Retention Automation (Python version)
 from fastapi import FastAPI, Request, Response, HTTPException
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
+from enum import Enum
 import random
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -40,7 +41,7 @@ SENDINBLUE_API_KEY = os.getenv("SENDINBLUE_API_KEY", "demo-sendinblue-key")
 INTERCOM_API_KEY = os.getenv("INTERCOM_API_KEY", "demo-intercom-key")
 PIPEDRIVE_API_KEY = os.getenv("PIPEDRIVE_API_KEY", "demo-pipedrive-key")
 
-class CRMProvider(str):
+class CRMProvider(str, Enum):
     HUBSPOT = "hubspot"
     KLAVIYO = "klaviyo"
     SALESFORCE = "salesforce"
@@ -52,7 +53,7 @@ class CRMProvider(str):
     PIPEDRIVE = "pipedrive"
     NONE = "none"
 
-class WorkflowType(str):
+class WorkflowType(str, Enum):
     SIMPLE = "simple"
     MULTISTEP = "multistep"
     CONDITIONAL = "conditional"

@@ -1,4 +1,4 @@
-from services.synccreate.logic.prompt_engineer import PromptEngineer
+from logic.prompt_engineer import PromptEngineer
 """
 SyncCreate – Creative Generation Agent
 """
@@ -23,10 +23,10 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 
 
 
-from services.synccreate.app import video_api
+# from services.synccreate.app import video_api
 
 app = FastAPI(title="SyncCreate Creative Generation")
-app.include_router(video_api.router)
+# app.include_router(video_api.router)
 
 # Instrument FastAPI with OpenTelemetry
 trace.set_tracer_provider(TracerProvider())

@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 
-from fastapi import FastAPI, Request, HTTPException, Response, WebSocket, WebSocketDisconnect, Query, Body
+from fastapi import FastAPI, Request, HTTPException, Response, WebSocket, WebSocketDisconnect, Query, Body, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field, ValidationError
@@ -34,6 +34,12 @@ from fastapi import BackgroundTasks
 from fastapi_limiter import FastAPILimiter
 import uuid
 
+# Enterprise quick wins imports
+from shared.middleware import RequestIDMiddleware, RequestLoggingMiddleware, get_request_id
+from shared.config import SyncBrainConfig
+from shared.health import HealthChecker, HealthStatus, ServiceHealth
+from shared.shutdown import GracefulShutdownHandler
+
 # Prometheus metrics
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
@@ -43,8 +49,31 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
+# Load environment-based configuration
+config = SyncBrainConfig()
 
-app = FastAPI(title="SyncBrain LLM Orchestrator", description="LLM-based strategy orchestration with context, rules, and OpenAI integration.")
+# Configure structured logging
+logging.basicConfig(
+    level=config.log_level,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - request_id=%(request_id)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+app = FastAPI(
+    title="SyncBrain LLM Orchestrator", 
+    description="LLM-based strategy orchestration with context, rules, and OpenAI integration.",
+    version=config.version
+)
+
+# Add enterprise middleware
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(RequestLoggingMiddleware, logger=logging.getLogger("syncbrain"))
+
+# Initialize health checker
+health_checker = HealthChecker(service_name=config.service_name, version=config.version)
+
+# Initialize graceful shutdown handler
+shutdown_handler = GracefulShutdownHandler(timeout=config.shutdown_timeout)
 
 # Instrument FastAPI with OpenTelemetry
 trace.set_tracer_provider(TracerProvider())
@@ -93,6 +122,48 @@ AUDIT_LOG = []
 
 # Rules/guardrails
 def validate_strategy_input(context: Dict[str, Any]) -> bool:
+    # Example: require at least one key in context
+    return bool(context)
+
+def filter_llm_output(output: str) -> str:
+    # Example: block certain words (simple guardrail)
+    blocked = ["hack", "exploit"]
+    for word in blocked:
+        if word in output.lower():
+            return "[REDACTED]"
+    return output
+
+# Register dependency health checks
+async def check_syncvalue_health():
+    """Check SyncValue service health"""
+    return await health_checker.check_http_endpoint(
+        "syncvalue", 
+        f"{config.syncvalue_url}/healthz"
+    )
+
+async def check_syncflow_health():
+    """Check SyncFlow service health"""
+    return await health_checker.check_http_endpoint(
+        "syncflow",
+        f"{config.syncflow_url}/healthz"
+    )
+
+health_checker.register_dependency("syncvalue", check_syncvalue_health)
+health_checker.register_dependency("syncflow", check_syncflow_health)
+
+@app.get("/health", response_model=ServiceHealth, tags=["monitoring"])
+async def enhanced_health_check():
+    """
+    Enhanced health check with dependency status and metrics.
+    Returns comprehensive service health including all dependencies.
+    """
+    metrics = {
+        "total_requests": REQUEST_COUNT._metrics,
+        "total_errors": ERROR_COUNT._metrics,
+        "strategies_planned": STRATEGY_PLANS._value.get()
+    }
+    return await health_checker.get_health(metrics=metrics)
+
     # Example: require at least one key in context
     return bool(context)
 
@@ -337,7 +408,9 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 # --- Clean Architecture: UseCase Layer ---
-from services.syncbrain.internal.usecases.orchestrate import orchestrate_strategy
+# Note: Orchestrate module not yet implemented in container structure
+# from services.syncbrain.internal.usecases.orchestrate import orchestrate_strategy
+orchestrate_strategy = None  # Placeholder
 
 # gRPC server implementation
 class StrategyOrchestratorServicer(brain_pb2_grpc.StrategyOrchestratorServicer):
@@ -360,9 +433,9 @@ def start_grpc_server():
 @app.on_event("startup")
 async def startup():
     # Initialize rate limiter (using Redis)
-    import aioredis
-    redis = await aioredis.create_redis_pool("redis://localhost")
-    await FastAPILimiter.init(redis)
+    import redis.asyncio as aioredis
+    redis_conn = await aioredis.from_url("redis://redis:6379", encoding="utf-8", decode_responses=True)
+    await FastAPILimiter.init(redis_conn)
 
 @app.post("/profile", dependencies=[Depends(get_current_user)])
 def get_profile(user=Depends(get_current_user)):

@@ -14,7 +14,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
   syncbrain:
-    build: ./services/syncbrain
+    build:
+      context: .
+      dockerfile: ./services/syncbrain/Dockerfile
     ports:
       - "8001:8000"
     environment:
@@ -29,7 +31,9 @@ services:
       timeout: 3s
       retries: 10
   syncvalue:
-    build: ./services/syncvalue
+    build:
+      context: .
+      dockerfile: ./services/syncvalue/Dockerfile
     ports:
       - "8002:8000"
     depends_on:
@@ -55,7 +59,9 @@ services:
       timeout: 3s
       retries: 10
   synccreate:
-    build: ./services/synccreate
+    build:
+      context: .
+      dockerfile: ./services/synccreate/Dockerfile
     ports:
       - "8004:8000"
     depends_on:
@@ -77,7 +83,9 @@ services:
       timeout: 4s
       retries: 15
   syncengage:
-    build: ./services/syncengage
+    build:
+      context: .
+      dockerfile: ./services/syncengage/Dockerfile
     ports:
       - "8005:8000"
     depends_on:
@@ -95,7 +103,7 @@ services:
     depends_on:
       - postgres
     environment:
-      - SYNC_DB_DSN=host=postgres user=postgres password=kiki_pass dbname=syncshield port=5432 sslmode=disable
+      - SYNC_DB_DSN=host=postgres user=kiki password=kiki_pass dbname=kiki_db port=5432 sslmode=disable
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/healthz"]
@@ -140,7 +148,9 @@ services:
       timeout: 3s
       retries: 10
   explainability-broker:
-    build: ./services/explainability_broker
+    build:
+      context: .
+      dockerfile: ./services/explainability_broker/Dockerfile
     ports:
       - "8089:8000"
     depends_on:
@@ -152,7 +162,9 @@ services:
       timeout: 3s
       retries: 10
   acquisitionagent:
-    build: ./services/acquisitionagent
+    build:
+      context: .
+      dockerfile: ./services/acquisitionagent/Dockerfile
     ports:
       - "8012:8000"
     depends_on:

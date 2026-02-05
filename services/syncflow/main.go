@@ -183,6 +183,9 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "bid received"})
 	})
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 	bidder := &DefaultBidder{
 		brain:  &DummyBrain{},
 		value:  &DummyValue{},
