@@ -1,4 +1,4 @@
-from logic.prompt_engineer import PromptEngineer
+from logic.prompt_engineer import PromptEngineer, MultimediaPromptEngineer
 """
 SyncCreate – Creative Generation Agent
 """
@@ -57,6 +57,7 @@ creatives_store: Dict[str, Dict[str, Any]] = {}
 ratings_store: Dict[str, list] = {}
 
 prompt_engineer = PromptEngineer()
+multimedia_prompt_engineer = MultimediaPromptEngineer()
 
 @app.post("/generate")
 async def generate(req: GenerateRequest, background_tasks: BackgroundTasks):
@@ -279,6 +280,264 @@ def ratings_summary():
                 "average": sum(ratings) / len(ratings)
             }
     return {"ratings_summary": summary}
+
+
+# ============================================================================
+# Council of Nine Integration - Campaign Automation Endpoints
+# ============================================================================
+
+class GenerateCopyRequest(BaseModel):
+    """Request model for ad copy generation"""
+    brand_name: str
+    campaign_brief: Dict[str, Any]
+    count: int = 5
+
+
+class GenerateImagePromptsRequest(BaseModel):
+    """Request model for image prompt generation"""
+    brand_data: Dict[str, Any]
+    count: int = 3
+
+
+@app.post("/generate-copy")
+async def generate_ad_copies(req: GenerateCopyRequest):
+    """
+    Generate ad copy variations for a campaign.
+    
+    Uses PromptEngineer to create on-brand, audience-targeted ad copies.
+    Called by Council of Nine during prompt_to_campaign and url_to_campaign workflows.
+    """
+    REQUEST_COUNT.labels(endpoint="/generate-copy", method="POST").inc()
+    
+    with REQUEST_LATENCY.labels(endpoint="/generate-copy").time():
+        with tracer.start_as_current_span("generate_copy"):
+            try:
+                brand_name = req.brand_name
+                campaign_brief = req.campaign_brief
+                count = req.count
+                
+                # Extract context from campaign brief
+                target_audience = campaign_brief.get("target_audience", "general audience")
+                key_message = campaign_brief.get("key_message", f"Discover {brand_name}")
+                tone = campaign_brief.get("tone", "professional")
+                
+                # Determine audience segment for PromptEngineer
+                audience_segment = "lifestyle"  # default
+                if "luxury" in target_audience.lower() or "premium" in target_audience.lower():
+                    audience_segment = "luxury"
+                elif "tech" in target_audience.lower() or "b2b" in target_audience.lower():
+                    audience_segment = "tech"
+                elif "enterprise" in target_audience.lower():
+                    audience_segment = "luxury"  # enterprise gets premium treatment
+                
+                # Generate ad copy variations
+                ad_copies = []
+                templates = [
+                    f"{key_message}",
+                    f"Discover {brand_name} - Transform your experience",
+                    f"{brand_name}: {key_message.split('.')[0] if '.' in key_message else 'Quality you can trust'}",
+                    f"Join thousands who love {brand_name}",
+                    f"Experience the {brand_name} difference today"
+                ]
+                
+                # Add more variations based on tone
+                if tone == "friendly":
+                    templates.extend([
+                        f"Hey! Check out {brand_name} 👋",
+                        f"You're going to love {brand_name}!",
+                        f"{brand_name} - Made just for you"
+                    ])
+                elif tone == "professional":
+                    templates.extend([
+                        f"{brand_name}: Industry-leading solutions",
+                        f"Choose {brand_name} for excellence",
+                        f"Partner with {brand_name} for success"
+                    ])
+                elif tone == "luxury":
+                    templates.extend([
+                        f"{brand_name}: Redefining luxury",
+                        f"Experience exclusivity with {brand_name}",
+                        f"{brand_name} - Where excellence meets elegance"
+                    ])
+                
+                # Select top N variations
+                ad_copies = templates[:count]
+                
+                # Ensure we always return the requested count
+                while len(ad_copies) < count:
+                    ad_copies.append(f"{brand_name}: {key_message}")
+                
+                GENERATED_CREATIVES.inc(len(ad_copies))
+                
+                return {
+                    "ad_copies": ad_copies,
+                    "brand_name": brand_name,
+                    "audience_segment": audience_segment,
+                    "count": len(ad_copies)
+                }
+                
+            except Exception as e:
+                ERROR_COUNT.labels(endpoint="/generate-copy").inc()
+                raise
+
+
+@app.post("/generate-image-prompts")
+async def generate_image_prompts(req: GenerateImagePromptsRequest):
+    """
+    Generate Stable Diffusion image prompts for a campaign.
+    
+    Uses PromptEngineer to craft high-quality, LTV-optimized prompts.
+    Called by Council of Nine during prompt_to_campaign and url_to_campaign workflows.
+    """
+    REQUEST_COUNT.labels(endpoint="/generate-image-prompts", method="POST").inc()
+    
+    with REQUEST_LATENCY.labels(endpoint="/generate-image-prompts").time():
+        with tracer.start_as_current_span("generate_image_prompts"):
+            try:
+                brand_data = req.brand_data
+                count = req.count
+                
+                # Extract brand context
+                brand_name = brand_data.get("brand_name", "Product")
+                industry = brand_data.get("industry_profile", {}).get("category", "General")
+                ltv_baseline = brand_data.get("industry_profile", {}).get("ltv_baseline", 100.0)
+                tone = brand_data.get("tone", "professional")
+                colors = brand_data.get("colors", [])
+                
+                # Calculate LTV score (0.0 - 1.0) for PromptEngineer
+                # Map LTV baseline to score: $50 = 0.5, $250+ = 1.0
+                ltv_score = min(1.0, max(0.3, ltv_baseline / 250.0))
+                
+                # Determine audience segment based on industry
+                audience_segment_map = {
+                    "E-commerce & Retail": "lifestyle",
+                    "SaaS & Software": "tech",
+                    "Mobile Gaming": "tech",
+                    "Professional Services": "luxury",
+                    "Education & E-Learning": "lifestyle",
+                    "Health & Wellness": "lifestyle",
+                    "Financial Services": "luxury"
+                }
+                audience_segment = audience_segment_map.get(industry, "lifestyle")
+                
+                # Generate base product descriptions
+                product_descriptions = [
+                    f"{brand_name} product showcase, professional photography",
+                    f"{brand_name} brand lifestyle image, authentic customer experience",
+                    f"{brand_name} abstract brand identity, modern design"
+                ]
+                
+                # Use PromptEngineer to craft high-quality prompts
+                image_prompts = []
+                for i, desc in enumerate(product_descriptions[:count]):
+                    engineered_prompt = prompt_engineer.craft_prompt(
+                        audience_segment=audience_segment,
+                        ltv_score=ltv_score,
+                        product_desc=desc
+                    )
+                    image_prompts.append(engineered_prompt)
+                
+                # Ensure we return the requested count
+                while len(image_prompts) < count:
+                    fallback_desc = f"{brand_name} professional marketing image #{len(image_prompts) + 1}"
+                    fallback_prompt = prompt_engineer.craft_prompt(
+                        audience_segment=audience_segment,
+                        ltv_score=ltv_score,
+                        product_desc=fallback_desc
+                    )
+                    image_prompts.append(fallback_prompt)
+                
+                GENERATED_CREATIVES.inc(len(image_prompts))
+                
+                return {
+                    "image_prompts": image_prompts,
+                    "brand_name": brand_name,
+                    "audience_segment": audience_segment,
+                    "ltv_score": ltv_score,
+                    "count": len(image_prompts)
+                }
+                
+            except Exception as e:
+                ERROR_COUNT.labels(endpoint="/generate-image-prompts").inc()
+                raise
+
+
+class GenerateVideoPromptsRequest(BaseModel):
+    """Request model for video prompt generation"""
+    brand_data: Dict[str, Any]
+    count: int = 2
+
+
+@app.post("/generate-video-prompts")
+async def generate_video_prompts(req: GenerateVideoPromptsRequest):
+    """
+    Generate video prompts for video generation models (RunwayML, DeepBrain, D-ID).
+    
+    Uses MultimediaPromptEngineer to craft high-quality, cinematic video prompts
+    with temporal descriptors (camera motion, transitions, lighting changes).
+    Called by Council of Nine during prompt_to_campaign and url_to_campaign workflows.
+    """
+    REQUEST_COUNT.labels(endpoint="/generate-video-prompts", method="POST").inc()
+    
+    with REQUEST_LATENCY.labels(endpoint="/generate-video-prompts").time():
+        with tracer.start_as_current_span("generate_video_prompts"):
+            try:
+                brand_data = req.brand_data
+                count = req.count
+                
+                # Extract brand context
+                brand_name = brand_data.get("brand_name", "Product")
+                industry = brand_data.get("industry_profile", {}).get("category", "General")
+                
+                # Determine audience segment based on industry
+                audience_segment_map = {
+                    "E-commerce & Retail": "lifestyle",
+                    "SaaS & Software": "tech",
+                    "Mobile Gaming": "tech",
+                    "Professional Services": "luxury",
+                    "Education & E-Learning": "lifestyle",
+                    "Health & Wellness": "lifestyle",
+                    "Financial Services": "luxury"
+                }
+                audience_segment = audience_segment_map.get(industry, "lifestyle")
+                
+                # Generate base product descriptions for video
+                video_descriptions = [
+                    f"{brand_name} product showcase, professional videography",
+                    f"{brand_name} customer experience montage, authentic testimonials",
+                    f"{brand_name} brand story, cinematic narrative"
+                ]
+                
+                # Use MultimediaPromptEngineer to craft cinematic video prompts
+                video_prompts = []
+                for i, desc in enumerate(video_descriptions[:count]):
+                    engineered_prompt = multimedia_prompt_engineer.craft_video_prompt(
+                        audience_segment=audience_segment,
+                        product_desc=desc
+                    )
+                    video_prompts.append(engineered_prompt)
+                
+                # Ensure we return the requested count
+                while len(video_prompts) < count:
+                    fallback_desc = f"{brand_name} professional marketing video #{len(video_prompts) + 1}"
+                    fallback_prompt = multimedia_prompt_engineer.craft_video_prompt(
+                        audience_segment=audience_segment,
+                        product_desc=fallback_desc
+                    )
+                    video_prompts.append(fallback_prompt)
+                
+                GENERATED_CREATIVES.inc(len(video_prompts))
+                
+                return {
+                    "video_prompts": video_prompts,
+                    "brand_name": brand_name,
+                    "audience_segment": audience_segment,
+                    "count": len(video_prompts)
+                }
+                
+            except Exception as e:
+                ERROR_COUNT.labels(endpoint="/generate-video-prompts").inc()
+                raise
 
 
 @app.get("/healthz")

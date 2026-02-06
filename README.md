@@ -32,6 +32,77 @@ KIKI Agent™ is built for modularity and extensibility, enabling organizations 
 - **Secure & Compliant:** Built-in audit logging, encryption, and compliance guardrails.
 - **Observability:** Integrated with Prometheus and Grafana for monitoring and alerting.
 - **Extensible:** Easily add new agents or integrations for ad networks, CRM, analytics, and more.
+- **🚀 URL-to-Campaign Automation:** Transform any website URL into a complete, deployed advertising campaign with KIKI's "Advantage+ Suite" - see [URL_TO_CAMPAIGN.md](docs/URL_TO_CAMPAIGN.md)
+
+## 🚀 Council of Nine: Two Entry Points for Campaign Automation
+
+KIKI's flagship orchestration feature - the "Council of Nine" - coordinates all KIKI agents to transform your input into a complete, deployed advertising campaign. Users can interact with KIKI through **two primary entry points**:
+
+### 1. **Prompt-to-Campaign** (⭐ PRIMARY)
+
+Transform natural language prompts into complete campaigns - no website required.
+
+```bash
+# Example: Budget + ROI constraint
+curl -X POST http://localhost:8002/api/v1/prompt-to-campaign \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Launch product with $100k budget, target ROI 3x"}'
+
+# Example: Industry + audience targeting
+curl -X POST http://localhost:8002/api/v1/prompt-to-campaign \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Create campaign for SaaS startup, B2B enterprise audience, $50k budget"}'
+
+# Auto-deploy mode
+curl -X POST http://localhost:8002/api/v1/prompt-to-campaign \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Mobile game launch, casual players, $25k budget", "auto_deploy": true}'
+```
+
+**What it does**:
+- Parses natural language → Extracts budget, ROI, industry, audience
+- Predicts LTV baseline → Calculates max CPA from ROI target
+- Generates 5 ad copies + 3 image prompts
+- Validates brand safety
+- Deploys with budget & ROI constraints
+
+**Example Script**: `python services/syncvalue/example_prompt_to_campaign.py`
+
+---
+
+### 2. **URL-to-Campaign**
+
+Transform an existing website into a campaign by extracting brand identity.
+
+```bash
+# Extract brand from URL and generate campaign
+curl -X POST http://localhost:8002/api/v1/url-to-campaign \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com", "auto_deploy": true}'
+```
+
+**What it does**:
+- Scrapes URL → Extracts brand identity, colors, tone
+- Classifies industry (E-commerce, SaaS, Gaming, etc.)
+- Predicts LTV baseline ($60-$2500+)
+- Generates on-brand ad creatives
+- Deploys with LTV constraints
+
+**Example Script**: `python services/syncvalue/example_url_to_campaign.py`
+
+---
+
+### The Advantage+ Suite
+
+KIKI enhances Meta's core automation features with LTV-based intelligence:
+
+| Meta Feature | KIKI Enhancement |
+|--------------|------------------|
+| **Advantage+ Audience** | **SyncValue™ + SyncBrain™**: LTV-based targeting, not just CPA |
+| **Advantage+ Creative** | **SyncCreate™ + SyncShield™**: Autonomous generation with brand safety |
+| **Advantage+ Placements** | **SyncFlow™**: LTV-optimized bidding with <1ms real-time execution |
+
+**Complete Documentation**: [URL_TO_CAMPAIGN.md](docs/URL_TO_CAMPAIGN.md)
 
 ## Technologies
 

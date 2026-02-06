@@ -3,13 +3,15 @@
 Convert HOW_KIKI_WORKS.md to PDF with styling
 """
 
-import markdown
-from weasyprint import HTML, CSS
+import argparse
 from pathlib import Path
 
-def convert_markdown_to_pdf(md_file: str, pdf_file: str):
+import markdown
+from weasyprint import HTML, CSS
+
+def convert_markdown_to_pdf(md_file: str, pdf_file: str, title: str) -> None:
     """
-    Convert markdown file to PDF with custom styling
+    Convert markdown file to PDF with custom styling.
     """
     # Read markdown content
     with open(md_file, 'r', encoding='utf-8') as f:
@@ -193,7 +195,7 @@ def convert_markdown_to_pdf(md_file: str, pdf_file: str):
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>How KIKI Agent Works</title>
+        <title>{title}</title>
     </head>
     <body>
         {html_content}
@@ -214,8 +216,33 @@ def convert_markdown_to_pdf(md_file: str, pdf_file: str):
     print(f"📄 File size: {size_mb:.2f} MB")
 
 
+def parse_args() -> argparse.Namespace:
+    """
+    Parse CLI arguments for markdown to PDF conversion.
+    """
+    parser = argparse.ArgumentParser(
+        description="Convert a Markdown file to PDF with KIKI styling."
+    )
+    parser.add_argument(
+        "md_file",
+        nargs="?",
+        default="/workspaces/kiki-agent-syncshield/docs/HOW_KIKI_WORKS.md",
+        help="Path to the Markdown file.",
+    )
+    parser.add_argument(
+        "pdf_file",
+        nargs="?",
+        default="/workspaces/kiki-agent-syncshield/docs/HOW_KIKI_WORKS.pdf",
+        help="Path to the output PDF file.",
+    )
+    parser.add_argument(
+        "--title",
+        default="KIKI Agent Document",
+        help="Title to embed in the PDF metadata.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    md_file = "/workspaces/kiki-agent-syncshield/docs/HOW_KIKI_WORKS.md"
-    pdf_file = "/workspaces/kiki-agent-syncshield/docs/HOW_KIKI_WORKS.pdf"
-    
-    convert_markdown_to_pdf(md_file, pdf_file)
+    args = parse_args()
+    convert_markdown_to_pdf(args.md_file, args.pdf_file, args.title)

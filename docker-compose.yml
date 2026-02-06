@@ -123,6 +123,40 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
+  dashboard:
+    build: ./services/dashboard
+    ports:
+      - "8021:8021"
+    depends_on:
+      - syncvalue
+      - auth
+    environment:
+      - ANALYTICS_API_URL=http://syncvalue:8020
+      - AUTH_API_URL=http://auth:8030
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8021/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  auth:
+    build: ./services/auth
+    ports:
+      - "8030:8030"
+    depends_on:
+      - postgres
+    environment:
+      - KIKI_DATABASE_URL=postgresql://kiki:kiki_pass@postgres:5432/kiki_db
+      - KIKI_JWT_SECRET=${KIKI_JWT_SECRET:-CHANGE_THIS_IN_PRODUCTION_OR_USE_ENV_VAR}
+      - KIKI_ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - KIKI_REFRESH_TOKEN_EXPIRE_DAYS=7
+      - KIKI_ENV=${KIKI_ENV:-development}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8030/healthz', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
   syncreflex:
     build: ./services/syncreflex
     ports:

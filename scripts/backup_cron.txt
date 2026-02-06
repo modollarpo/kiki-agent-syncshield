@@ -1,0 +1,24 @@
+# KIKI Agent™ - Automated Backup Cron Jobs
+#
+# Installation:
+#   sudo crontab -e
+#   # Paste the contents below
+#
+# Or programmatically:
+#   sudo crontab -l > /tmp/cron.bak
+#   cat /path/to/backup_cron.txt | sudo crontab -
+
+# Database Backups - Daily at 2:00 AM
+0 2 * * * /workspaces/kiki-agent-syncshield/scripts/backup_database.sh >> /var/log/kiki/backup.log 2>&1
+
+# Database Backups - Every 6 hours (for production)
+# 0 */6 * * * /workspaces/kiki-agent-syncshield/scripts/backup_database.sh >> /var/log/kiki/backup.log 2>&1
+
+# Weekly Full Backup - Sundays at 3:00 AM
+# 0 3 * * 0 /workspaces/kiki-agent-syncshield/scripts/backup_database.sh >> /var/log/kiki/weekly_backup.log 2>&1
+
+# Cleanup old logs - Monthly on 1st at 4:00 AM
+0 4 1 * * find /var/log/kiki/ -name "*.log" -mtime +90 -delete
+
+# Health check - Every 5 minutes
+# */5 * * * * curl -f http://localhost:8030/healthz || echo "Auth service down at $(date)" >> /var/log/kiki/health.log
