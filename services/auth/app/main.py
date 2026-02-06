@@ -4,12 +4,14 @@ Authentication API for KIKI Agent™
 Provides user registration, login, token management, and API key generation.
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
 import uuid
 import logging
+import secrets
 
 from shared.auth import (
     hash_password,
@@ -34,9 +36,12 @@ from shared.auth_schemas import (
     UserResponse,
     PasswordChangeRequest,
     APIKeyCreateRequest,
-    APIKeyResponse
+    APIKeyResponse,
+    InviteCodeGenerateRequest,
+    InviteCodeResponse,
+    InviteCodeListResponse
 )
-from shared.models import UserModel, AuditLogModel
+from shared.models import UserModel, AuditLogModel, InviteCodeModel
 from services.syncvalue.database import get_db, init_db
 
 # ============================================================================
@@ -82,14 +87,44 @@ def register_user(
     db: Session = Depends(get_db)
 ):
     """
-    Register a new user.
+    Register a new user with invite code (invite-only registration).
     
     - **username**: Unique username (3-50 characters)
     - **email**: Valid email address
     - **password**: Secure password (min 8 chars, upper, lower, digit)
+    - **invite_code**: Valid invite code (required for registration)
     - **full_name**: Optional full name
     - **organization_name**: Optional organization name
     """
+    # Validate invite code
+    invite = db.query(InviteCodeModel).filter(
+        InviteCodeModel.code == user_data.invite_code
+    ).first()
+    
+    if not invite:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid invite code"
+        )
+    
+    if invite.is_used:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite code has already been used"
+        )
+    
+    if invite.is_revoked:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite code has been revoked"
+        )
+    
+    if invite.expires_at and invite.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite code has expired"
+        )
+    
     # Check if username exists
     if db.query(UserModel).filter(UserModel.username == user_data.username).first():
         raise HTTPException(
@@ -122,19 +157,30 @@ def register_user(
     )
     
     db.add(user)
+    db.flush()  # Flush to get user.id before marking invite as used
+    
+    # Mark invite as used
+    invite.is_used = True
+    invite.used_by_id = user.id
+    invite.used_at = datetime.utcnow()
+    
     db.commit()
     db.refresh(user)
     
     # Audit log
     audit = AuditLogModel(
         event_type="user.registered",
-        event_data={"user_id": user.user_id, "username": user.username},
+        event_data={
+            "user_id": user.user_id,
+            "username": user.username,
+            "invite_code": user_data.invite_code
+        },
         user_id=user.user_id
     )
     db.add(audit)
     db.commit()
     
-    logger.info(f"User registered: {user.username} ({user.user_id})")
+    logger.info(f"User registered: {user.username} ({user.user_id}) with invite {invite.code}")
     
     return user
 
@@ -321,14 +367,199 @@ def change_password(
 def list_users(
     skip: int = 0,
     limit: int = 100,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
     admin: UserModel = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """
     List all users (admin only).
+    
+    Args:
+        skip: Pagination offset
+        limit: Max results
+        role: Filter by role (user, admin)
+        is_active: Filter by active status
     """
-    users = db.query(UserModel).offset(skip).limit(limit).all()
+    query = db.query(UserModel)
+    
+    if role:
+        query = query.filter(UserModel.role == role)
+    if is_active is not None:
+        query = query.filter(UserModel.is_active == is_active)
+    
+    users = query.order_by(UserModel.created_at.desc()).offset(skip).limit(limit).all()
     return users
+
+
+@app.post("/api/auth/users/create", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def admin_create_user(
+    user_data: UserRegisterRequest,
+    role: str = "user",
+    admin: UserModel = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create new user (admin only).
+    
+    Args:
+        user_data: User registration data
+        role: User role (user or admin)
+    """
+    # Check if username exists
+    if db.query(UserModel).filter(UserModel.username == user_data.username).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered"
+        )
+    
+    # Check if email exists
+    if db.query(UserModel).filter(UserModel.email == user_data.email).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Validate role
+    if role not in ["user", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Role must be 'user' or 'admin'"
+        )
+    
+    # Generate organization ID if provided
+    organization_id = None
+    if user_data.organization_name:
+        organization_id = f"org_{uuid.uuid4().hex[:12]}"
+    
+    # Create user
+    user = UserModel(
+        user_id=f"usr_{uuid.uuid4().hex[:12]}",
+        username=user_data.username,
+        email=user_data.email,
+        hashed_password=hash_password(user_data.password),
+        full_name=user_data.full_name,
+        organization_id=organization_id,
+        role=role,
+        is_active=True
+    )
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # Audit log
+    audit = AuditLogModel(
+        event_type="user.created_by_admin",
+        event_data={
+            "created_user_id": user.user_id,
+            "username": user.username,
+            "role": role,
+            "created_by": admin.user_id
+        },
+        user_id=admin.user_id
+    )
+    db.add(audit)
+    db.commit()
+    
+    logger.info(f"User created by admin: {user.username} ({role}) by {admin.username}")
+    
+    return user
+
+
+@app.patch("/api/auth/users/{user_id}/role")
+def update_user_role(
+    user_id: str,
+    new_role: str,
+    admin: UserModel = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user role (admin only).
+    
+    Args:
+        user_id: User ID to update
+        new_role: New role (user or admin)
+    """
+    if new_role not in ["user", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Role must be 'user' or 'admin'"
+        )
+    
+    user = db.query(UserModel).filter(UserModel.user_id == user_id).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    old_role = user.role
+    user.role = new_role
+    db.commit()
+    
+    # Audit log
+    audit = AuditLogModel(
+        event_type="user.role_updated",
+        event_data={
+            "user_id": user_id,
+            "old_role": old_role,
+            "new_role": new_role,
+            "updated_by": admin.user_id
+        },
+        user_id=admin.user_id
+    )
+    db.add(audit)
+    db.commit()
+    
+    logger.info(f"User role updated: {user.username} {old_role} → {new_role} by {admin.username}")
+    
+    return {"message": f"User role updated to {new_role}", "user_id": user_id, "new_role": new_role}
+
+
+@app.patch("/api/auth/users/{user_id}/activate")
+def activate_user(
+    user_id: str,
+    active: bool,
+    admin: UserModel = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Activate or deactivate user (admin only).
+    
+    Args:
+        user_id: User ID to update
+        active: True to activate, False to deactivate
+    """
+    user = db.query(UserModel).filter(UserModel.user_id == user_id).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    user.is_active = active
+    db.commit()
+    
+    # Audit log
+    audit = AuditLogModel(
+        event_type="user.activated" if active else "user.deactivated",
+        event_data={
+            "user_id": user_id,
+            "username": user.username,
+            "updated_by": admin.user_id
+        },
+        user_id=admin.user_id
+    )
+    db.add(audit)
+    db.commit()
+    
+    action = "activated" if active else "deactivated"
+    logger.info(f"User {action}: {user.username} by {admin.username}")
+    
+    return {"message": f"User {action} successfully", "user_id": user_id, "is_active": active}
 
 
 @app.delete("/api/auth/users/{user_id}")
@@ -338,7 +569,7 @@ def delete_user(
     db: Session = Depends(get_db)
 ):
     """
-    Delete user (admin only).
+    Delete user (admin only). Performs soft delete by deactivating.
     """
     user = db.query(UserModel).filter(UserModel.user_id == user_id).first()
     
@@ -346,6 +577,13 @@ def delete_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
+        )
+    
+    # Prevent self-deletion
+    if user.user_id == admin.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account"
         )
     
     # Soft delete (deactivate)
@@ -364,6 +602,214 @@ def delete_user(
     logger.info(f"User deleted: {user.username} by {admin.username}")
     
     return {"message": f"User {user_id} deleted successfully"}
+
+
+# ============================================================================
+# Invite Code Management (Admin Only)
+# ============================================================================
+
+@app.post("/api/auth/invites/generate", response_model=InviteCodeListResponse)
+def generate_invite_codes(
+    request: InviteCodeGenerateRequest,
+    admin: UserModel = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate new invite codes (admin only).
+    
+    Args:
+        request: Number of codes to generate and optional expiration
+    
+    Returns:
+        List of generated invite codes
+    """
+    codes = []
+    expires_at = None
+    
+    if request.expires_days:
+        expires_at = datetime.utcnow() + timedelta(days=request.expires_days)
+    
+    for _ in range(request.count):
+        # Generate secure random code
+        code = f"KIKI-{secrets.token_urlsafe(16)[:16]}"
+        
+        invite = InviteCodeModel(
+            code=code,
+            created_by_id=admin.id,
+            expires_at=expires_at
+        )
+        
+        db.add(invite)
+        codes.append(invite)
+    
+    db.commit()
+    
+    # Refresh all codes to get database-generated fields
+    for invite in codes:
+        db.refresh(invite)
+    
+    # Audit log
+    audit = AuditLogModel(
+        event_type="invites.generated",
+        event_data={
+            "count": request.count,
+            "expires_days": request.expires_days,
+            "generated_by": admin.user_id
+        },
+        user_id=admin.user_id
+    )
+    db.add(audit)
+    db.commit()
+    
+    logger.info(f"Generated {request.count} invite codes by {admin.username}")
+    
+    # Build response with metadata
+    responses = []
+    for invite in codes:
+        responses.append(InviteCodeResponse(
+            id=invite.id,
+            code=invite.code,
+            created_by_id=invite.created_by_id,
+            used_by_id=invite.used_by_id,
+            is_used=invite.is_used,
+            is_revoked=invite.is_revoked,
+            created_at=invite.created_at,
+            used_at=invite.used_at,
+            expires_at=invite.expires_at,
+            created_by_email=admin.email
+        ))
+    
+    return InviteCodeListResponse(
+        total=len(responses),
+        unused=len(responses),
+        used=0,
+        revoked=0,
+        codes=responses
+    )
+
+
+@app.get("/api/auth/invites", response_model=InviteCodeListResponse)
+def list_invite_codes(
+    status_filter: str = Query("all", description="Filter by status: all, unused, used, revoked"),
+    admin: UserModel = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    List all invite codes (admin only).
+    
+    Args:
+        status_filter: Filter by status (all, unused, used, revoked)
+    
+    Returns:
+        List of invite codes with statistics
+    """
+    query = db.query(InviteCodeModel)
+    
+    if status_filter == "unused":
+        query = query.filter(
+            and_(
+                InviteCodeModel.is_used == False,
+                InviteCodeModel.is_revoked == False
+            )
+        )
+    elif status_filter == "used":
+        query = query.filter(InviteCodeModel.is_used == True)
+    elif status_filter == "revoked":
+        query = query.filter(InviteCodeModel.is_revoked == True)
+    
+    invites = query.order_by(InviteCodeModel.created_at.desc()).all()
+    
+    # Calculate statistics
+    all_invites = db.query(InviteCodeModel).all()
+    total = len(all_invites)
+    unused = len([i for i in all_invites if not i.is_used and not i.is_revoked])
+    used = len([i for i in all_invites if i.is_used])
+    revoked = len([i for i in all_invites if i.is_revoked])
+    
+    # Build responses with creator and user emails
+    responses = []
+    for invite in invites:
+        creator = db.query(UserModel).filter(UserModel.id == invite.created_by_id).first()
+        user = None
+        if invite.used_by_id:
+            user = db.query(UserModel).filter(UserModel.id == invite.used_by_id).first()
+        
+        responses.append(InviteCodeResponse(
+            id=invite.id,
+            code=invite.code,
+            created_by_id=invite.created_by_id,
+            used_by_id=invite.used_by_id,
+            is_used=invite.is_used,
+            is_revoked=invite.is_revoked,
+            created_at=invite.created_at,
+            used_at=invite.used_at,
+            expires_at=invite.expires_at,
+            created_by_email=creator.email if creator else None,
+            used_by_email=user.email if user else None
+        ))
+    
+    return InviteCodeListResponse(
+        total=total,
+        unused=unused,
+        used=used,
+        revoked=revoked,
+        codes=responses
+    )
+
+
+@app.delete("/api/auth/invites/{code}")
+def revoke_invite_code(
+    code: str,
+    admin: UserModel = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Revoke an unused invite code (admin only).
+    
+    Args:
+        code: Invite code to revoke
+    
+    Returns:
+        Success message
+    """
+    invite = db.query(InviteCodeModel).filter(InviteCodeModel.code == code).first()
+    
+    if not invite:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invite code not found"
+        )
+    
+    if invite.is_used:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot revoke used invite code"
+        )
+    
+    if invite.is_revoked:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite code already revoked"
+        )
+    
+    invite.is_revoked = True
+    db.commit()
+    
+    # Audit log
+    audit = AuditLogModel(
+        event_type="invite.revoked",
+        event_data={
+            "code": code,
+            "revoked_by": admin.user_id
+        },
+        user_id=admin.user_id
+    )
+    db.add(audit)
+    db.commit()
+    
+    logger.info(f"Invite code revoked: {code} by {admin.username}")
+    
+    return {"message": "Invite code revoked successfully", "code": code}
 
 
 # ============================================================================

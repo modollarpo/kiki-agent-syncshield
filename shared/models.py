@@ -267,8 +267,13 @@ class UserModel(Base):
     username = Column(String(100), unique=True, nullable=False, index=True)
     
     # Authentication
-    password_hash = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=False)  # Renamed from password_hash for consistency
     role = Column(String(50), default="user")  # user, admin, agency
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Profile
+    full_name = Column(String(200), nullable=True)
+    organization_id = Column(String(50), nullable=True, index=True)
     
     # Platform API keys (encrypted)
     meta_api_key = Column(Text, nullable=True)
@@ -277,10 +282,44 @@ class UserModel(Base):
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
     
     # Relationships
     campaigns = relationship("CampaignDeploymentModel", backref="user", foreign_keys="CampaignDeploymentModel.deployment_id")
+
+
+# ============================================================================
+# Invite Codes (for invite-only registration)
+# ============================================================================
+
+class InviteCodeModel(Base):
+    """
+    Invite codes for controlled user registration.
+    
+    Admin-generated one-time use tokens for B2B invite-only access.
+    """
+    __tablename__ = "invite_codes"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(64), unique=True, nullable=False, index=True)  # Unique invite code
+    
+    # Tracking
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Admin who created it
+    used_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # User who used it (null = unused)
+    
+    # Status
+    is_used = Column(Boolean, default=False, nullable=False, index=True)
+    is_revoked = Column(Boolean, default=False, nullable=False)  # Manual revocation
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True, index=True)  # Optional expiration
+    
+    # Relationships
+    created_by = relationship("UserModel", foreign_keys=[created_by_id], backref="created_invites")
+    used_by = relationship("UserModel", foreign_keys=[used_by_id], backref="used_invite")
 
 
 # ============================================================================

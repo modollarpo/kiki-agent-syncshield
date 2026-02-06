@@ -14,6 +14,7 @@ class UserRegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Unique username")
     email: EmailStr = Field(..., description="Valid email address")
     password: str = Field(..., min_length=8, description="Password (min 8 characters)")
+    invite_code: str = Field(..., min_length=1, description="Valid invite code (required)")
     full_name: Optional[str] = Field(None, max_length=200, description="User's full name")
     organization_name: Optional[str] = Field(None, max_length=200, description="Organization name")
     
@@ -34,6 +35,7 @@ class UserRegisterRequest(BaseModel):
                 "username": "johndoe",
                 "email": "john@example.com",
                 "password": "SecurePass123",
+                "invite_code": "KIKI-abc123def456",
                 "full_name": "John Doe",
                 "organization_name": "Acme Corp"
             }
@@ -171,5 +173,78 @@ class APIKeyResponse(BaseModel):
                 "created_at": "2026-02-06T14:30:00Z",
                 "expires_at": "2026-05-06T14:30:00Z",
                 "last_used_at": None
+            }
+        }
+
+
+# ============================================================================
+# Invite Code Schemas
+# ============================================================================
+
+class InviteCodeGenerateRequest(BaseModel):
+    """Request to generate new invite codes"""
+    count: int = Field(default=1, ge=1, le=100, description="Number of invite codes to generate")
+    expires_days: Optional[int] = Field(None, ge=1, le=365, description="Expiration in days (optional)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "count": 5,
+                "expires_days": 30
+            }
+        }
+
+
+class InviteCodeResponse(BaseModel):
+    """Invite code information response"""
+    id: int
+    code: str
+    created_by_id: int
+    used_by_id: Optional[int]
+    is_used: bool
+    is_revoked: bool
+    created_at: datetime
+    used_at: Optional[datetime]
+    expires_at: Optional[datetime]
+    
+    # Extra fields for convenience
+    created_by_email: Optional[str] = None
+    used_by_email: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": 1,
+                "code": "KIKI-a1b2c3d4e5f6",
+                "created_by_id": 1,
+                "used_by_id": None,
+                "is_used": False,
+                "is_revoked": False,
+                "created_at": "2026-02-06T14:30:00Z",
+                "used_at": None,
+                "expires_at": "2026-03-08T14:30:00Z",
+                "created_by_email": "admin@kiki.ai",
+                "used_by_email": None
+            }
+        }
+
+
+class InviteCodeListResponse(BaseModel):
+    """List of invite codes with metadata"""
+    total: int
+    unused: int
+    used: int
+    revoked: int
+    codes: list[InviteCodeResponse]
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total": 10,
+                "unused": 5,
+                "used": 3,
+                "revoked": 2,
+                "codes": []
             }
         }

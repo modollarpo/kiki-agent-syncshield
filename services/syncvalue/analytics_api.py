@@ -18,7 +18,8 @@ from services.syncvalue.database import (
     PerformanceRepository,
     AnalyticsRepository
 )
-from shared.models import CampaignDeploymentModel
+from shared.models import CampaignDeploymentModel, UserModel
+from shared.auth_middleware import get_current_user, get_optional_user, verify_service_api_key
 
 app = FastAPI(title="KIKI Analytics API", version="1.0.0")
 
@@ -83,9 +84,12 @@ def healthz():
 
 
 @app.get("/api/analytics/summary", response_model=BusinessSummary)
-def get_business_summary(db: Session = Depends(get_db)):
+def get_business_summary(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
     """
-    Get high-level business metrics
+    Get high-level business metrics (requires authentication)
     
     Returns:
         - Total campaigns created
@@ -100,10 +104,11 @@ def get_business_summary(db: Session = Depends(get_db)):
 @app.get("/api/analytics/revenue-trend", response_model=List[RevenueTrendPoint])
 def get_revenue_trend(
     days: int = 30,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
 ):
     """
-    Get daily revenue trend
+    Get daily revenue trend (requires authentication)
     
     Args:
         days: Number of days to retrieve (default 30)
@@ -132,10 +137,11 @@ def get_campaigns(
     offset: int = 0,
     status: Optional[str] = None,
     user_id: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
 ):
     """
-    Get list of campaigns
+    Get list of campaigns (requires authentication)
     
     Args:
         limit: Max results to return
@@ -179,10 +185,11 @@ def get_campaign_performance(
     deployment_id: str,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
 ):
     """
-    Get performance metrics for a specific campaign
+    Get performance metrics for a specific campaign (requires authentication)
     
     Args:
         deployment_id: Campaign deployment ID
@@ -221,10 +228,11 @@ def get_campaign_performance(
 @app.get("/api/analytics/platform-breakdown")
 def get_platform_breakdown(
     days: int = 30,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
 ):
     """
-    Get performance breakdown by platform (Meta, Google, TikTok, etc.)
+    Get performance breakdown by platform (Meta, Google, TikTok, etc.) - requires authentication
     
     Args:
         days: Number of days to analyze
@@ -265,10 +273,11 @@ def get_top_performing_campaigns(
     limit: int = 10,
     metric: str = "roi",  # roi, revenue, conversions
     days: int = 30,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
 ):
     """
-    Get top performing campaigns
+    Get top performing campaigns (requires authentication)
     
     Args:
         limit: Number of top campaigns
@@ -340,10 +349,13 @@ class PerformanceUpdate(BaseModel):
 @app.post("/api/performance/report")
 def report_performance(
     update: PerformanceUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    service: str = Depends(verify_service_api_key)
 ):
     """
-    Report campaign performance (called by SyncFlow)
+    Report campaign performance (called by SyncFlow with API key)
+    
+    Requires API key authentication (service-to-service)
     
     Args:
         update: Performance metrics for a campaign

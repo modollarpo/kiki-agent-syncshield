@@ -1,0 +1,494 @@
+/*
+ * CMS Integration gRPC Service Definitions
+ * 
+ * Defines the protocol buffer messages and services for communication
+ * between SyncPortal™ and the Council of Nine agents.
+ * 
+ * Services:
+ * - SyncValueService: LTV updates and predictions
+ * - SyncFlowService: Circuit breaker and bid adjustments
+ * - SyncLedgerService: OaaS settlement and revenue tracking
+ * - SyncCreateService: Creative generation from product feeds
+ * - SyncEngageService: Customer lifecycle triggers
+ * - SyncShieldService: Audit logging and encryption
+ */
+
+syntax = "proto3";
+
+package kiki.cms;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// ========================================================================
+// Common Messages
+// ========================================================================
+
+message Money {
+    string currency = 1;  // ISO 4217 code (e.g., "USD")
+    int64 units = 2;      // Whole units (dollars)
+    int32 nanos = 3;      // Fractional units (cents)
+}
+
+message CustomerInfo {
+    string platform_customer_id = 1;
+    string email = 2;
+    string first_name = 3;
+    string last_name = 4;
+    string phone = 5;
+    int32 total_orders = 6;
+    Money total_spent = 7;
+    google.protobuf.Timestamp first_order_date = 8;
+    google.protobuf.Timestamp last_order_date = 9;
+}
+
+message ProductInfo {
+    string platform_product_id = 1;
+    string sku = 2;
+    string title = 3;
+    string description = 4;
+    Money price = 5;
+    int32 inventory_quantity = 6;
+    bool in_stock = 7;
+    string image_url = 8;
+    repeated string image_urls = 9;
+    string product_url = 10;
+    string vendor = 11;
+    string product_type = 12;
+}
+
+message OrderLineItem {
+    string platform_line_item_id = 1;
+    string platform_product_id = 2;
+    string sku = 3;
+    string product_title = 4;
+    int32 quantity = 5;
+    Money price = 6;
+    Money total_price = 7;
+}
+
+// ========================================================================
+// SyncValue™ Service - LTV Predictions & Baseline Updates
+// ========================================================================
+
+service SyncValueService {
+    // Update customer LTV prediction based on new order
+    rpc UpdateCustomerLTV(CustomerLTVUpdateRequest) returns (CustomerLTVUpdateResponse);
+    
+    // Recalculate baseline metrics for OaaS comparison
+    rpc UpdateBaselineMetrics(BaselineUpdateRequest) returns (BaselineUpdateResponse);
+    
+    // Get LTV prediction for attribution scoring
+    rpc GetCustomerLTV(CustomerLTVRequest) returns (CustomerLTVResponse);
+    
+    // Batch update for historical data sync
+    rpc BatchUpdateOrders(BatchOrdersRequest) returns (BatchOrdersResponse);
+}
+
+message CustomerLTVUpdateRequest {
+    int32 store_id = 1;
+    CustomerInfo customer = 2;
+    Money order_amount = 3;
+    google.protobuf.Timestamp order_date = 4;
+    bool is_first_order = 5;
+    repeated OrderLineItem items = 6;
+}
+
+message CustomerLTVUpdateResponse {
+    bool success = 1;
+    double predicted_ltv = 2;
+    double confidence = 3;
+    double churn_risk_score = 4;
+    string ltv_segment = 5;  // "high", "medium", "low"
+}
+
+message BaselineUpdateRequest {
+    int32 store_id = 1;
+    google.protobuf.Timestamp start_date = 2;
+    google.protobuf.Timestamp end_date = 3;
+    repeated Money order_amounts = 4;
+    int32 total_orders = 5;
+}
+
+message BaselineUpdateResponse {
+    bool success = 1;
+    Money baseline_revenue = 2;
+    Money avg_order_value = 3;
+    int32 unique_customers = 4;
+    double repeat_customer_rate = 5;
+}
+
+message CustomerLTVRequest {
+    int32 store_id = 1;
+    string customer_email = 2;
+}
+
+message CustomerLTVResponse {
+    double predicted_ltv = 1;
+    double confidence = 2;
+    double churn_risk_score = 3;
+}
+
+message BatchOrdersRequest {
+    int32 store_id = 1;
+    repeated CustomerLTVUpdateRequest orders = 2;
+}
+
+message BatchOrdersResponse {
+    int32 processed_count = 1;
+    int32 failed_count = 2;
+    repeated string errors = 3;
+}
+
+// ========================================================================
+// SyncFlow™ Service - Circuit Breaker & Bid Adjustments
+// ========================================================================
+
+service SyncFlowService {
+    // Pause campaigns for out-of-stock product (circuit breaker)
+    rpc PauseProductCampaigns(PauseCampaignsRequest) returns (PauseCampaignsResponse);
+    
+    // Resume campaigns when product is restocked
+    rpc ResumeProductCampaigns(ResumeCampaignsRequest) returns (ResumeCampaignsResponse);
+    
+    // Adjust bids based on inventory levels
+    rpc AdjustBidsForInventory(BidAdjustmentRequest) returns (BidAdjustmentResponse);
+    
+    // Update product margins for profitability-based bidding
+    rpc UpdateProductMargins(ProductMarginsRequest) returns (ProductMarginsResponse);
+}
+
+message PauseCampaignsRequest {
+    int32 store_id = 1;
+    int32 product_id = 2;
+    string platform_product_id = 3;
+    string sku = 4;
+    string reason = 5;  // "out_of_stock", "low_margin", "manual"
+    google.protobuf.Timestamp triggered_at = 6;
+}
+
+message PauseCampaignsResponse {
+    bool success = 1;
+    repeated string affected_campaign_ids = 2;
+    int32 campaigns_paused = 3;
+    double estimated_daily_spend_saved = 4;
+}
+
+message ResumeCampaignsRequest {
+    int32 store_id = 1;
+    int32 product_id = 2;
+    string platform_product_id = 3;
+    string sku = 4;
+    int32 new_inventory_quantity = 5;
+    google.protobuf.Timestamp triggered_at = 6;
+}
+
+message ResumeCampaignsResponse {
+    bool success = 1;
+    repeated string affected_campaign_ids = 2;
+    int32 campaigns_resumed = 3;
+    double estimated_daily_spend_restored = 4;
+}
+
+message BidAdjustmentRequest {
+    int32 store_id = 1;
+    int32 product_id = 2;
+    int32 inventory_quantity = 3;
+    int32 low_stock_threshold = 4;
+    double bid_adjustment_factor = 5;  // 0.5 = reduce by 50%, 1.5 = increase by 50%
+}
+
+message BidAdjustmentResponse {
+    bool success = 1;
+    repeated string affected_campaign_ids = 2;
+    double old_bid = 3;
+    double new_bid = 4;
+}
+
+message ProductMarginsRequest {
+    int32 store_id = 1;
+    map<string, double> product_margins = 2;  // platform_product_id -> margin %
+}
+
+message ProductMarginsResponse {
+    bool success = 1;
+    int32 updated_count = 2;
+}
+
+// ========================================================================
+// SyncLedger™ Service - OaaS Settlement & Revenue Tracking
+// ========================================================================
+
+service SyncLedgerService {
+    // Record incremental revenue for OaaS billing
+    rpc RecordIncrementalRevenue(IncrementalRevenueRequest) returns (IncrementalRevenueResponse);
+    
+    // Calculate OaaS success fee for billing period
+    rpc CalculateSuccessFee(SuccessFeeRequest) returns (SuccessFeeResponse);
+    
+    // Get attribution data for specific order
+    rpc GetOrderAttribution(OrderAttributionRequest) returns (OrderAttributionResponse);
+}
+
+message IncrementalRevenueRequest {
+    int32 store_id = 1;
+    int32 order_id = 2;
+    string platform_order_id = 3;
+    Money order_amount = 4;
+    Money incremental_amount = 5;
+    double attribution_confidence = 6;
+    string campaign_id = 7;
+    repeated string touchpoint_ids = 8;
+    google.protobuf.Timestamp order_date = 9;
+}
+
+message IncrementalRevenueResponse {
+    bool success = 1;
+    bool counted_as_incremental = 2;
+    Money success_fee_amount = 3;  // 20% of incremental revenue
+    string invoice_id = 4;
+}
+
+message SuccessFeeRequest {
+    int32 store_id = 1;
+    google.protobuf.Timestamp start_date = 2;
+    google.protobuf.Timestamp end_date = 3;
+}
+
+message SuccessFeeResponse {
+    Money baseline_revenue = 1;
+    Money current_revenue = 2;
+    Money incremental_revenue = 3;
+    double growth_percentage = 4;
+    Money success_fee = 5;
+    int32 attributed_orders_count = 6;
+    double avg_attribution_confidence = 7;
+}
+
+message OrderAttributionRequest {
+    int32 order_id = 1;
+}
+
+message OrderAttributionResponse {
+    bool attributed_to_kiki = 1;
+    double confidence = 2;
+    string campaign_id = 3;
+    repeated string touchpoint_ids = 4;
+    Money incremental_revenue = 5;
+}
+
+// ========================================================================
+// SyncCreate™ Service - Creative Generation from Product Feeds
+// ========================================================================
+
+service SyncCreateService {
+    // Generate ad creative from product data
+    rpc GenerateProductCreative(ProductCreativeRequest) returns (ProductCreativeResponse);
+    
+    // Batch generate creatives for new product sync
+    rpc BatchGenerateCreatives(BatchCreativeRequest) returns (BatchCreativeResponse);
+    
+    // Notify of product update for creative refresh
+    rpc RefreshProductCreative(RefreshCreativeRequest) returns (RefreshCreativeResponse);
+}
+
+message ProductCreativeRequest {
+    int32 store_id = 1;
+    ProductInfo product = 2;
+    string creative_type = 3;  // "image", "video", "carousel"
+    string ad_network = 4;  // "google", "meta", "tiktok"
+}
+
+message ProductCreativeResponse {
+    bool success = 1;
+    string creative_id = 2;
+    repeated string generated_asset_urls = 3;
+    string headline = 4;
+    string description = 5;
+    string call_to_action = 6;
+}
+
+message BatchCreativeRequest {
+    int32 store_id = 1;
+    repeated ProductInfo products = 2;
+    string creative_type = 3;
+}
+
+message BatchCreativeResponse {
+    int32 processed_count = 1;
+    int32 failed_count = 2;
+    repeated ProductCreativeResponse creatives = 3;
+}
+
+message RefreshCreativeRequest {
+    int32 store_id = 1;
+    string platform_product_id = 2;
+    ProductInfo updated_product = 3;
+    string reason = 4;  // "price_change", "image_update", "description_update"
+}
+
+message RefreshCreativeResponse {
+    bool success = 1;
+    repeated string updated_campaign_ids = 2;
+}
+
+// ========================================================================
+// SyncEngage™ Service - Customer Lifecycle Triggers
+// ========================================================================
+
+service SyncEngageService {
+    // Trigger post-purchase nurture flow
+    rpc TriggerPostPurchaseFlow(PostPurchaseRequest) returns (PostPurchaseResponse);
+    
+    // Trigger churn prevention for at-risk customers
+    rpc TriggerChurnPrevention(ChurnPreventionRequest) returns (ChurnPreventionResponse);
+    
+    // Trigger upsell/cross-sell based on purchase history
+    rpc TriggerUpsellFlow(UpsellRequest) returns (UpsellResponse);
+}
+
+message PostPurchaseRequest {
+    int32 store_id = 1;
+    CustomerInfo customer = 2;
+    int32 order_id = 3;
+    Money order_amount = 4;
+    repeated OrderLineItem items = 5;
+    google.protobuf.Timestamp order_date = 6;
+}
+
+message PostPurchaseResponse {
+    bool success = 1;
+    string flow_id = 2;
+    repeated string scheduled_emails = 3;
+    repeated string scheduled_sms = 4;
+}
+
+message ChurnPreventionRequest {
+    int32 store_id = 1;
+    CustomerInfo customer = 2;
+    double churn_risk_score = 3;
+    int32 days_since_last_order = 4;
+}
+
+message ChurnPreventionResponse {
+    bool success = 1;
+    string flow_id = 2;
+    string discount_code = 3;
+    google.protobuf.Timestamp discount_expires = 4;
+}
+
+message UpsellRequest {
+    int32 store_id = 1;
+    CustomerInfo customer = 2;
+    repeated string purchased_product_ids = 3;
+    double predicted_ltv = 4;
+}
+
+message UpsellResponse {
+    bool success = 1;
+    repeated string recommended_product_ids = 2;
+    string campaign_id = 3;
+}
+
+// ========================================================================
+// SyncShield™ Service - Audit Logging & Encryption
+// ========================================================================
+
+service SyncShieldService {
+    // Log CMS data access for GDPR/CCPA compliance
+    rpc LogDataAccess(DataAccessLogRequest) returns (DataAccessLogResponse);
+    
+    // Encrypt sensitive customer data
+    rpc EncryptCustomerData(EncryptRequest) returns (EncryptResponse);
+    
+    // Decrypt customer data for processing
+    rpc DecryptCustomerData(DecryptRequest) returns (DecryptResponse);
+    
+    // Log webhook processing event
+    rpc LogWebhookEvent(WebhookLogRequest) returns (WebhookLogResponse);
+}
+
+message DataAccessLogRequest {
+    string service_name = 1;  // "syncportal"
+    string action = 2;  // "read", "write", "delete"
+    string resource_type = 3;  // "customer", "order", "product"
+    string resource_id = 4;
+    string user_id = 5;
+    map<string, string> metadata = 6;
+}
+
+message DataAccessLogResponse {
+    bool success = 1;
+    string audit_log_id = 2;
+    google.protobuf.Timestamp logged_at = 3;
+}
+
+message EncryptRequest {
+    string plaintext = 1;
+    string key_id = 2;  // Optional: use specific encryption key
+}
+
+message EncryptResponse {
+    string ciphertext = 1;
+    string key_id = 2;
+    string initialization_vector = 3;
+}
+
+message DecryptRequest {
+    string ciphertext = 1;
+    string key_id = 2;
+    string initialization_vector = 3;
+}
+
+message DecryptResponse {
+    string plaintext = 1;
+}
+
+message WebhookLogRequest {
+    string platform = 1;  // "shopify", "woocommerce"
+    string topic = 2;  // "orders/create", "products/update"
+    string payload_json = 3;
+    string signature = 4;
+    bool verified = 5;
+    int32 store_id = 6;
+}
+
+message WebhookLogResponse {
+    bool success = 1;
+    string log_id = 2;
+    google.protobuf.Timestamp logged_at = 3;
+}
+
+// ========================================================================
+// CMS Webhook Events (Internal Events)
+// ========================================================================
+
+message OrderCreatedEvent {
+    int32 store_id = 1;
+    string platform = 2;
+    string platform_order_id = 3;
+    string order_number = 4;
+    Money total_price = 5;
+    CustomerInfo customer = 6;
+    repeated OrderLineItem items = 7;
+    google.protobuf.Timestamp order_date = 8;
+    map<string, string> metadata = 9;
+}
+
+message ProductUpdatedEvent {
+    int32 store_id = 1;
+    string platform = 2;
+    ProductInfo product = 3;
+    int32 previous_inventory = 4;
+    int32 new_inventory = 5;
+    string change_type = 6;  // "inventory", "price", "description"
+    google.protobuf.Timestamp updated_at = 7;
+}
+
+message CustomerUpdatedEvent {
+    int32 store_id = 1;
+    string platform = 2;
+    CustomerInfo customer = 3;
+    string change_type = 4;  // "new_order", "profile_update"
+    google.protobuf.Timestamp updated_at = 5;
+}
