@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"syncledger/internal"
-	"syncledger/internal/models"
+	models "syncledger/internal"
 	pb "syncledger/proto"
 )
 
@@ -38,14 +38,15 @@ func NewLedgerService(db *gorm.DB) *LedgerService {
 // 4. SyncLedger records entry and calculates success fee
 //
 // Example Request:
-// {
-//   "store_id": 123,
-//   "order_id": 456,
-//   "order_amount": {"units": 99, "nanos": 990000000},
-//   "incremental_amount": {"units": 29, "nanos": 990000000},
-//   "attribution_confidence": 0.85,
-//   "campaign_id": "campaign_123_meta"
-// }
+//
+//	{
+//	  "store_id": 123,
+//	  "order_id": 456,
+//	  "order_amount": {"units": 99, "nanos": 990000000},
+//	  "incremental_amount": {"units": 29, "nanos": 990000000},
+//	  "attribution_confidence": 0.85,
+//	  "campaign_id": "campaign_123_meta"
+//	}
 func (s *LedgerService) RecordIncrementalRevenue(
 	ctx context.Context,
 	req *pb.IncrementalRevenueRequest,
@@ -73,40 +74,39 @@ func (s *LedgerService) RecordIncrementalRevenue(
 
 	// Calculate attribution decision
 	orderAmount := moneyToFloat(req.OrderAmount)
-	incrementalAmount := moneyToFloat(req.IncrementalAmount)
 
 	// Build signal scores from request metadata
 	signalScores := map[string]float64{
-		"ad_touchpoint":       0.5, // From attribution engine
-		"product_promotion":   0.3,
-		"nurture_engagement":  0.2,
+		"ad_touchpoint":      0.5, // From attribution engine
+		"product_promotion":  0.3,
+		"nurture_engagement": 0.2,
 	}
 
 	decision := s.calculator.CalculateAttribution(
 		orderAmount,
 		baseline.BaselineAvgOrderValue,
-		req.AttributionConfidence,
+		float64(req.AttributionConfidence),
 		signalScores,
 	)
 
 	// Create ledger entry (immutable record)
 	entry := &models.LedgerEntry{
-		StoreID:                int(req.StoreId),
-		Platform:               req.Platform,
-		OrderID:                int(req.OrderId),
-		PlatformOrderID:        req.PlatformOrderId,
-		OrderAmount:            orderAmount,
-		AttributedToKIKI:       decision.IsAttributed,
-		AttributionConfidence:  req.AttributionConfidence,
-		IncrementalRevenue:     decision.IncrementalRevenue,
-		BaselineRevenue:        baseline.BaselineAvgOrderValue,
-		UpliftPercentage:       decision.UpliftPercentage,
-		SuccessFeeAmount:       decision.SuccessFee,
-		FeeApplicable:          decision.FeeApplicable,
-		CampaignID:             stringPtr(req.CampaignId),
-		AttributionReason:      decision.Reason,
-		AgentsInvolved:         internal.MarshalAgentsJSON(decision.AgentsInvolved),
-		InvoiceStatus:          "pending",
+		StoreID:               int(req.StoreId),
+		Platform:              req.Platform,
+		OrderID:               int(req.OrderId),
+		PlatformOrderID:       req.PlatformOrderId,
+		OrderAmount:           orderAmount,
+		AttributedToKIKI:      decision.IsAttributed,
+		AttributionConfidence: float64(req.AttributionConfidence),
+		IncrementalRevenue:    decision.IncrementalRevenue,
+		BaselineRevenue:       baseline.BaselineAvgOrderValue,
+		UpliftPercentage:      decision.UpliftPercentage,
+		SuccessFeeAmount:      decision.SuccessFee,
+		FeeApplicable:         decision.FeeApplicable,
+		CampaignID:            stringPtr(req.CampaignId),
+		AttributionReason:     decision.Reason,
+		AgentsInvolved:        internal.MarshalAgentsJSON(decision.AgentsInvolved),
+		InvoiceStatus:         "pending",
 	}
 
 	// Save to database
@@ -131,7 +131,7 @@ func (s *LedgerService) RecordIncrementalRevenue(
 		OrderID:                int(req.OrderId),
 		DecisionEngine:         "multi_signal_v1",
 		SignalScores:           internal.MarshalSignalScoresJSON(signalScores),
-		FinalConfidence:        req.AttributionConfidence,
+		FinalConfidence:        float64(req.AttributionConfidence),
 		ThresholdApplied:       s.calculator.ConfidenceThreshold,
 		SyncFlowContribution:   signalScores["ad_touchpoint"],
 		SyncCreateContribution: signalScores["product_promotion"],
@@ -195,10 +195,10 @@ func (s *LedgerService) CalculateSuccessFee(
 
 	// Aggregate metrics
 	var (
-		totalRevenue       float64
-		totalIncremental   float64
-		totalSuccessFees   float64
-		attributedCount    int
+		totalRevenue        float64
+		totalIncremental    float64
+		totalSuccessFees    float64
+		attributedCount     int
 		highConfidenceCount int
 	)
 
@@ -225,10 +225,10 @@ func (s *LedgerService) CalculateSuccessFee(
 
 	// Build XAI attribution stats
 	attributionStats := map[string]int32{
-		"total_orders":       int32(len(entries)),
-		"attributed_orders":  int32(attributedCount),
-		"high_confidence":    int32(highConfidenceCount),
-		"medium_confidence":  int32(attributedCount - highConfidenceCount),
+		"total_orders":      int32(len(entries)),
+		"attributed_orders": int32(attributedCount),
+		"high_confidence":   int32(highConfidenceCount),
+		"medium_confidence": int32(attributedCount - highConfidenceCount),
 	}
 
 	log.Printf("📊 Settlement: Baseline $%.2f → Actual $%.2f (+%.1f%%), Fee $%.2f",
@@ -278,7 +278,7 @@ func (s *LedgerService) GetOrderAttribution(
 	response := &pb.OrderAttributionResponse{
 		Success:               true,
 		Attributed:            entry.AttributedToKIKI,
-		Confidence:            entry.AttributionConfidence,
+		Confidence:            float32(entry.AttributionConfidence),
 		IncrementalRevenue:    floatToMoney(entry.IncrementalRevenue),
 		SuccessFeeAmount:      floatToMoney(entry.SuccessFeeAmount),
 		Explanation:           entry.AttributionReason,

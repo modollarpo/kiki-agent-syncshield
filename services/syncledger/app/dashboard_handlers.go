@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"syncledger/internal"
-	"syncledger/internal/models"
+	models "syncledger/internal"
 )
 
 // GetClientLedgerHandler returns the "Revenue Engine Room" dashboard data
