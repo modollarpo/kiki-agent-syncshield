@@ -191,11 +191,30 @@ class LedgerEventListener:
         """
         logger.info(f"📄 Generating invoice for store {store_id} - {year}-{month:02d}")
         
-        # Extract data from settlement
+        # Extract data from settlement (Net Profit Model)
         baseline_revenue = self._money_to_decimal(settlement_data.baseline_revenue)
         current_revenue = self._money_to_decimal(settlement_data.current_revenue)
         incremental_revenue = self._money_to_decimal(settlement_data.incremental_revenue)
+        
+        # Ad Spend data (NEW - Net Profit Model)
+        baseline_ad_spend = self._money_to_decimal(getattr(settlement_data, 'baseline_ad_spend', pb.Money(amount=0)))
+        actual_ad_spend = self._money_to_decimal(getattr(settlement_data, 'actual_ad_spend', pb.Money(amount=0)))
+        incremental_ad_spend = actual_ad_spend - baseline_ad_spend
+        
+        # Net Profit Calculation
+        baseline_profit = baseline_revenue - baseline_ad_spend
+        actual_profit = current_revenue - actual_ad_spend
+        net_profit_uplift = incremental_revenue - incremental_ad_spend
+        
+        # Success fee based on Net Profit Uplift (not gross revenue)
         success_fee = self._money_to_decimal(settlement_data.success_fee_amount)
+        
+        # Client value metrics
+        client_net_gain = net_profit_uplift - success_fee
+        client_roi = Decimal("0.0")
+        if success_fee > 0:
+            client_roi = client_net_gain / success_fee
+        
         growth_percentage = Decimal(str(settlement_data.growth_percentage))
         
         # Calculate billing period dates
@@ -205,7 +224,7 @@ class LedgerEventListener:
         else:
             billing_end = datetime(year, month + 1, 1) - timedelta(days=1)
         
-        # Create invoice record
+        # Create invoice record (Net Profit Model)
         invoice = Invoice(
             invoice_number=f"KIKI-{year}{month:02d}-{store_id:06d}",
             store_id=store_id,
@@ -216,10 +235,30 @@ class LedgerEventListener:
             billing_year=year,
             billing_period_start=billing_start,
             billing_period_end=billing_end,
+            
+            # Revenue metrics
             baseline_revenue=baseline_revenue,
             actual_revenue=current_revenue,
             incremental_revenue=incremental_revenue,
             uplift_percentage=growth_percentage,
+            
+            # Ad Spend metrics (Net Profit Model)
+            baseline_ad_spend=baseline_ad_spend,
+            actual_ad_spend=actual_ad_spend,
+            incremental_ad_spend=incremental_ad_spend,
+            ad_spend_uplift_percent=(incremental_ad_spend / baseline_ad_spend * 100) if baseline_ad_spend > 0 else Decimal("0.0"),
+            
+            # Net Profit metrics
+            net_profit_uplift=net_profit_uplift,
+            baseline_profit=baseline_profit,
+            actual_profit=actual_profit,
+            net_profit_uplift_percent=(net_profit_uplift / baseline_profit * 100) if baseline_profit > 0 else Decimal("0.0"),
+            
+            # Client value
+            client_net_gain=client_net_gain,
+            client_roi=client_roi,
+            
+            # Invoice amounts
             subtotal=success_fee,
             tax_rate=Decimal("0.0"),  # TODO: Calculate based on jurisdiction
             tax_amount=Decimal("0.0"),

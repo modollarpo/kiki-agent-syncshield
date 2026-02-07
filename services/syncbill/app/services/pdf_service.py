@@ -144,33 +144,43 @@ class PDFService:
         story.append(Paragraph(bill_to_text, styles['Normal']))
         story.append(Spacer(1, 0.3*inch))
         
-        # 3. Performance Summary
-        story.append(Paragraph("Performance Summary", heading_style))
+        # 3. Performance Summary (Net Profit Model)
+        story.append(Paragraph("Performance Breakdown (Net Profit Model)", heading_style))
         
         performance_data = [
-            ['Metric', 'Value'],
-            ['Baseline Revenue (Pre-KIKI)', f"${invoice.baseline_revenue:,.2f}"],
-            ['Current Revenue', f"${invoice.actual_revenue:,.2f}"],
-            ['Incremental Revenue', f"${invoice.incremental_revenue:,.2f}"],
-            ['Uplift Percentage', f"{invoice.uplift_percentage}%"],
-            ['Success Fee Rate', '20%'],
+            ['Metric', 'Before KIKI', 'With KIKI', 'Uplift'],
+            ['Revenue', f"${invoice.baseline_revenue:,.2f}", f"${invoice.actual_revenue:,.2f}", f"+${invoice.incremental_revenue:,.2f}"],
+            ['Ad Spend', f"${invoice.baseline_ad_spend:,.2f}", f"${invoice.actual_ad_spend:,.2f}", f"+${invoice.incremental_ad_spend:,.2f}"],
+            ['Net Profit', f"${invoice.baseline_profit:,.2f}", f"${invoice.actual_profit:,.2f}", f"+${invoice.net_profit_uplift:,.2f}"],
         ]
         
-        performance_table = Table(performance_data, colWidths=[3*inch, 2*inch])
+        performance_table = Table(performance_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
         performance_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E3A8A')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#DBEAFE')),
+            ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, 2), [colors.white, colors.lightgrey]),
         ]))
         
         story.append(performance_table)
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Client Value Summary
+        client_value_text = f"""
+        <b>Net Profit Uplift:</b> ${invoice.net_profit_uplift:,.2f}<br/>
+        <b>KIKI Success Fee (20%):</b> ${invoice.subtotal:,.2f}<br/>
+        <b>Your Net Gain (80%):</b> <font color="#059669">${invoice.client_net_gain:,.2f}</font><br/>
+        <b>Your ROI:</b> <font color="#059669">{invoice.client_roi:.1f}x</font> (For every $1 paid to KIKI, you keep ${invoice.client_roi:.2f})
+        """
+        story.append(Paragraph(client_value_text, styles['Normal']))
         story.append(Spacer(1, 0.3*inch))
         
         # 4. Line Items
@@ -180,9 +190,9 @@ class PDFService:
             ['Description', 'Quantity', 'Unit Price', 'Amount']
         ]
         
-        # Success fee line
+        # Success fee line (Net Profit Model)
         line_items_data.append([
-            f"Success Fee (20% of ${invoice.incremental_revenue:,.2f} incremental revenue)",
+            f"Success Fee (20% of ${invoice.net_profit_uplift:,.2f} Net Profit Uplift)",
             '1',
             f"${invoice.subtotal:,.2f}",
             f"${invoice.subtotal:,.2f}"
@@ -244,10 +254,20 @@ class PDFService:
         story.append(Paragraph(payment_text, styles['Normal']))
         story.append(Spacer(1, 0.3*inch))
         
-        # 6. Zero-Risk Guarantee
+        # 6. Zero-Risk Guarantee (Net Profit Model)
         zero_risk_text = """
-        <b>Zero-Risk Guarantee:</b> If KIKI Agent™ underperforms (negative uplift), 
-        your success fee is automatically reduced to $0.00. You only pay when you profit.
+        <b>🛡️ Zero-Risk Guarantee (Net Profit Model):</b><br/><br/>
+        
+        KIKI only charges on <b>Net Profit Uplift</b> (revenue increase minus ad spend increase), 
+        not gross revenue. If your net profit goes down, your success fee is automatically $0.00.<br/><br/>
+        
+        <b>Why Net Profit vs Gross Revenue?</b><br/>
+        • You pay ad platforms directly (you own the accounts)<br/>
+        • KIKI manages budget via API-only access<br/>
+        • If ad costs consume the revenue gain, we don't get paid<br/>
+        • This ensures KIKI's success is aligned with your bottom line<br/><br/>
+        
+        <b>Your Protection:</b> You only pay when you truly profit.
         """
         story.append(Paragraph(zero_risk_text, styles['Italic']))
         

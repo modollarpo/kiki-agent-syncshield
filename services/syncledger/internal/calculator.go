@@ -7,7 +7,15 @@ import (
 )
 
 // UpliftCalculator handles all revenue attribution and success fee calculations
-// Core OaaS Formula: SuccessFee = (CurrentRevenue - BaselineRevenue) * 0.20
+// Core OaaS Formula (NET PROFIT MODEL):
+// NetUplift = (CurrentRevenue - BaselineRevenue) - (CurrentAdSpend - BaselineAdSpend)
+// SuccessFee = NetUplift * 0.20
+//
+// Why Net vs Gross:
+// - Client pays ad platforms directly (they own the accounts)
+// - KIKI manages budget via API-only access
+// - Fee must be on NET profit to align with client's bottom line
+// - If ad costs eat the revenue gain, KIKI doesn't get paid (fair)
 type UpliftCalculator struct {
 	// Configuration
 	SuccessFeePercentage float64 // Default: 0.20 (20%)
@@ -31,11 +39,17 @@ type AttributionDecision struct {
 	BaselineRevenue float64
 	Confidence      float64
 
+	// NEW: Ad Spend Tracking (for Net Profit model)
+	AdSpendForPeriod float64 // Actual ad spend for current period
+	BaselineAdSpend  float64 // Historical ad spend average
+
 	// Calculated Values
 	IsAttributed       bool
-	IncrementalRevenue float64
+	IncrementalRevenue float64 // Gross revenue increase
+	IncrementalAdSpend float64 // Ad spend increase
+	NetProfitUplift    float64 // Revenue increase - Ad spend increase
 	UpliftPercentage   float64
-	SuccessFee         float64
+	SuccessFee         float64 // 20% of NET uplift (not gross)
 	FeeApplicable      bool
 
 	// Attribution Breakdown
@@ -116,6 +130,202 @@ func (u *UpliftCalculator) CalculateAttribution(
 	decision.Counterfactual = baselineAvgOrderValue
 
 	return decision
+}
+
+// CalculateNetProfitAttribution computes attribution using the NET PROFIT MODEL
+//
+// This is the "Gold Standard" OaaS model for enterprise clients where:
+// - Client pays ad platforms directly (they own the accounts)
+// - KIKI manages budget via API-only access as "Digital Treasurer"
+// - Fee charged on NET PROFIT UPLIFT, not gross revenue
+//
+// Formula:
+//
+//	GrossUplift = CurrentRevenue - BaselineRevenue
+//	AdSpendIncrease = CurrentAdSpend - BaselineAdSpend
+//	NetProfitUplift = GrossUplift - AdSpendIncrease
+//	SuccessFee = NetProfitUplift × 20%
+//
+// Why Net vs Gross:
+//
+//	If client gains $50k revenue but spent $40k more on ads,
+//	gross model charges on $50k (unfair), net model charges on $10k (fair).
+//
+// Example:
+//
+//	Baseline: $100k revenue, $20k ad spend = $80k profit
+//	With KIKI: $150k revenue, $30k ad spend = $120k profit
+//	Gross Uplift: $50k, Ad Spend Increase: $10k
+//	Net Profit Uplift: $40k
+//	Success Fee: $8k (20% of $40k), not $10k (20% of $50k)
+//	Client Net Gain: $32k (80% of uplift)
+//	Client ROI: 4.0x
+func (u *UpliftCalculator) CalculateNetProfitAttribution(
+	currentRevenue float64,
+	baselineRevenue float64,
+	currentAdSpend float64,
+	baselineAdSpend float64,
+	confidence float64,
+	signalScores map[string]float64,
+) *AttributionDecision {
+	decision := &AttributionDecision{
+		IsAttributed:     false,
+		Confidence:       confidence,
+		SignalScores:     signalScores,
+		Counterfactual:   baselineRevenue,
+		BaselineAdSpend:  baselineAdSpend,
+		AdSpendForPeriod: currentAdSpend,
+		BaselineRevenue:  baselineRevenue,
+	}
+
+	// Step 1: Calculate gross revenue uplift
+	grossUplift := currentRevenue - baselineRevenue
+	decision.IncrementalRevenue = grossUplift
+
+	// Step 2: Calculate ad spend increase
+	adSpendIncrease := currentAdSpend - baselineAdSpend
+	decision.IncrementalAdSpend = adSpendIncrease
+
+	// Step 3: Calculate NET PROFIT UPLIFT (the key metric)
+	netProfitUplift := grossUplift - adSpendIncrease
+	decision.NetProfitUplift = netProfitUplift
+
+	// Step 4: Apply Zero-Risk Policy
+	// If net profit went DOWN, we charge $0 (not negative)
+	if netProfitUplift <= 0 {
+		decision.IsAttributed = false
+		decision.SuccessFee = 0.00
+		decision.FeeApplicable = false
+		decision.Reason = fmt.Sprintf(
+			"🛡️ Zero-Risk Policy Active: Net profit uplift is $%.2f (negative or zero). "+
+				"Gross revenue increased by $%.2f, but ad spend increased by $%.2f. "+
+				"Client Net Gain: $%.2f. KIKI charges $0 when client doesn't profit. "+
+				"No fee applied.",
+			netProfitUplift, grossUplift, adSpendIncrease, netProfitUplift,
+		)
+		return decision
+	}
+
+	// Step 5: Calculate success fee on NET PROFIT UPLIFT
+	successFee := netProfitUplift * u.SuccessFeePercentage
+	decision.SuccessFee = successFee
+	decision.FeeApplicable = true
+	decision.IsAttributed = true
+
+	// Step 6: Calculate client's net gain and ROI
+	clientNetGain := netProfitUplift - successFee
+	clientROI := 0.0
+	if successFee > 0 {
+		clientROI = clientNetGain / successFee
+	}
+
+	// Step 7: Generate XAI explanation
+	decision.Reason = u.generateNetProfitExplanation(
+		baselineRevenue,
+		currentRevenue,
+		grossUplift,
+		baselineAdSpend,
+		currentAdSpend,
+		adSpendIncrease,
+		netProfitUplift,
+		successFee,
+		clientNetGain,
+		clientROI,
+		confidence,
+		signalScores,
+	)
+
+	return decision
+}
+
+// generateNetProfitExplanation creates a detailed XAI explanation for Net Profit attribution
+func (u *UpliftCalculator) generateNetProfitExplanation(
+	baselineRevenue, currentRevenue, grossUplift float64,
+	baselineAdSpend, currentAdSpend, adSpendIncrease float64,
+	netProfitUplift, successFee, clientNetGain, clientROI float64,
+	confidence float64,
+	signalScores map[string]float64,
+) string {
+	// Build agent contributions text
+	agentContributions := ""
+	for agent, score := range signalScores {
+		agentContributions += fmt.Sprintf("  • %s: %.1f%%\n", agent, score*100)
+	}
+
+	explanation := fmt.Sprintf(`
+🎯 KIKI Net Profit Attribution (OaaS Model)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REVENUE ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Baseline Revenue (12-month avg):     $%.2f
+Current Period Revenue:               $%.2f
+Gross Revenue Uplift:                 +$%.2f (+%.1f%%)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AD SPEND ANALYSIS (Client-Owned Accounts)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Baseline Ad Spend (12-month avg):     $%.2f
+Current Period Ad Spend:              $%.2f
+Ad Spend Increase:                    +$%.2f
+
+Why ad spend increased:
+- KIKI identified high-LTV audiences (SyncValue prediction)
+- SyncFlow optimized bid strategies for profitable segments
+- MarginGuardian prevented CPA > LTV (no unprofitable bids)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NET PROFIT CALCULATION (The Number That Matters)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Gross Revenue Uplift:                 +$%.2f
+Less: Ad Spend Increase:              -$%.2f
+──────────────────────────────────────────────────────────────
+NET PROFIT UPLIFT:                    +$%.2f ✅
+──────────────────────────────────────────────────────────────
+
+KIKI's Success Fee (20%% of Net):     $%.2f
+Your Net Gain (80%% of Net):          $%.2f
+
+💎 Client ROI: %.1fx (For every $1 paid to KIKI, you keep $%.2f)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AGENT CONTRIBUTIONS (How We Did It)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+%s
+Attribution Confidence: %.1f%%
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHY NET PROFIT (NOT GROSS REVENUE)?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Fair Alignment: You pay ad platforms directly. KIKI manages via API.
+✅ Bottom-Line Focus: If ad costs eat the revenue gain, we don't get paid.
+✅ Transparent: You see exactly where every dollar came from and went.
+
+Example of Gross vs Net:
+- Gross model: Charge on $%.2f → Fee $%.2f
+  (Unfair: Ignores $%.2f you paid in extra ads)
+
+- Net model: Charge on $%.2f → Fee $%.2f ✅
+  (Fair: Accounts for ad costs. You keep $%.2f)
+
+This is the "Gold Standard" OaaS model. KIKI only wins when you profit.
+`,
+		baselineRevenue, currentRevenue, grossUplift,
+		(grossUplift/baselineRevenue)*100,
+		baselineAdSpend, currentAdSpend, adSpendIncrease,
+		grossUplift, adSpendIncrease, netProfitUplift,
+		successFee, clientNetGain, clientROI, clientNetGain,
+		agentContributions, confidence*100,
+		grossUplift, grossUplift*0.20, adSpendIncrease,
+		netProfitUplift, successFee, clientNetGain,
+	)
+
+	return explanation
 }
 
 // CalculateMonthlyUplift computes the total uplift for a billing period

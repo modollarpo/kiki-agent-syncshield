@@ -60,6 +60,22 @@ class Invoice(Base):
     incremental_revenue = Column(Numeric(12, 2), nullable=False)
     uplift_percentage = Column(Numeric(5, 2), nullable=False)
     
+    # Ad Spend Summary (NEW - Net Profit Model)
+    baseline_ad_spend = Column(Numeric(12, 2), default=0.0, nullable=False)  # Historical avg monthly ad spend
+    actual_ad_spend = Column(Numeric(12, 2), default=0.0, nullable=False)    # Actual ad spend this month (Meta + Google)
+    incremental_ad_spend = Column(Numeric(12, 2), default=0.0, nullable=False)  # Actual - Baseline
+    ad_spend_uplift_percent = Column(Numeric(5, 2), default=0.0)  # (Incremental / Baseline) * 100
+    
+    # Net Profit Calculation (THE KEY METRIC)
+    net_profit_uplift = Column(Numeric(12, 2), default=0.0, nullable=False)  # IncrementalRevenue - IncrementalAdSpend
+    baseline_profit = Column(Numeric(12, 2), default=0.0)  # BaselineRevenue - BaselineAdSpend
+    actual_profit = Column(Numeric(12, 2), default=0.0)    # ActualRevenue - ActualAdSpend
+    net_profit_uplift_percent = Column(Numeric(5, 2), default=0.0)  # (NetUplift / BaselineProfit) * 100
+    
+    # Client Value (NEW)
+    client_net_gain = Column(Numeric(12, 2), default=0.0)  # NetProfitUplift - Subtotal (success fee)
+    client_roi = Column(Numeric(5, 2), default=0.0)  # ClientNetGain / Subtotal
+    
     # Invoice amounts
     subtotal = Column(Numeric(12, 2), nullable=False)  # Success fee before tax
     tax_rate = Column(Numeric(5, 4), default=0.0)      # 0.20 for 20% VAT

@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+package syncledger;
+
+option go_package = "syncledger/proto";
+
+// SyncLedger™ - Automated OaaS Revenue Auditor
+// 
+// REST equivalent: N/A (gRPC only for internal service communication)
+// Called by: SyncPortal, SyncBill, Admin Dashboard
+// 
+// Responsibilities:
+// - Record incremental revenue attributions
+// - Calculate monthly success fees (20% of uplift)
+// - Provide XAI explainability for attributions
+// - Generate immutable audit trails
+service SyncLedgerService {
+  // RecordIncrementalRevenue is called when SyncPortal attributes an order to KIKI
+  //
+  // Flow:
+  // 1. SyncPortal webhook receives order from Shopify/WooCommerce
+  // 2. Attribution engine calculates confidence (e.g., 0.85)
+  // 3. If confidence >= 0.70, call this method
+  // 4. SyncLedger records entry and calculates success fee
+  //
+  // Example:
+  // Request: {store_id: 123, order_id: 456, amount: $99.99, confidence: 0.85}
+  // Response: {success: true, fee: $5.99, incremental: $29.99}
+  rpc RecordIncrementalRevenue(IncrementalRevenueRequest) returns (IncrementalRevenueResponse);
+
+  // CalculateSuccessFee generates the monthly OaaS settlement report
+  //
+  // Called by:
+  // - SyncPortal dashboard (end of month)
+  // - Admin invoice generation script
+  // - Client API for transparency
+  //
+  // Returns:
+  // - Baseline vs current revenue comparison
+  // - Total incremental revenue
+  // - Success fee (20% of incremental)
+  // - Attribution breakdown (XAI)
+  rpc CalculateSuccessFee(SuccessFeeRequest) returns (SuccessFeeResponse);
+
+  // GetOrderAttribution retrieves the attribution details for a specific order
+  //
+  // Used by:
+  // - Client dashboard ("Why was I charged for this order?")
+  // - Admin review panel
+  // - XAI explainability reports
+  rpc GetOrderAttribution(OrderAttributionRequest) returns (OrderAttributionResponse);
+
+  // UpdateBaselineMetrics updates the baseline snapshot for a store
+  //
+  // Called by:
+  // - Onboarding (set initial baseline from pre-KIKI data)
+  // - Monthly recalculation (rolling 90-day average)
+  // - Admin override (manual adjustment)
+  rpc UpdateBaselineMetrics(BaselineUpdateRequest) returns (BaselineUpdateResponse);
+}
+
+// Money represents a monetary amount with currency
+message Money {
+  string currency = 1; // ISO 4217 currency code (e.g., "USD")
+  int64 units = 2;     // Whole currency units (e.g., 99 for $99.99)
+  int32 nanos = 3;     // Nano units (e.g., 990000000 for $0.99)
+}
+
+// IncrementalRevenueRequest is sent by SyncPortal when an order is attributed
+message IncrementalRevenueRequest {
+  int32 store_id = 1;                  // Shopify store ID
+  int32 order_id = 2;                  // Internal order ID
+  string platform_order_id = 3;        // Shopify/WooCommerce order ID
+  string platform = 4;                 // "shopify", "woocommerce", "bigcommerce"
+  Money order_amount = 5;              // Total order amount
+  Money incremental_amount = 6;        // Amount above baseline (calculated by attribution engine)
+  float attribution_confidence = 7;    // 0.0-1.0 confidence score
+  string campaign_id = 8;              // SyncFlow campaign ID (if ad-driven)
+  map<string, float> signal_scores = 9; // XAI: {"ad_touchpoint": 0.5, "product_promo": 0.3, "nurture": 0.2}
+}
+
+// IncrementalRevenueResponse confirms the attribution and fee calculation
+message IncrementalRevenueResponse {
+  bool success = 1;                    // True if attributed and fee calculated
+  bool counted_as_incremental = 2;     // True if above baseline
+  Money success_fee_amount = 3;        // 20% of incremental revenue
+  int32 ledger_entry_id = 4;           // Immutable ledger entry ID
+  string invoice_id = 5;               // Invoice ID (set later when monthly invoice generated)
+  string explanation = 6;              // XAI: "This order was $30 above your $69.99 baseline, with 85% confidence. Fee: $6.00"
+}
+
+// SuccessFeeRequest requests the monthly settlement report
+message SuccessFeeRequest {
+  int32 store_id = 1;                  // Shopify store ID
+  int32 year = 2;                      // e.g., 2025
+  int32 month = 3;                     // 1-12
+}
+
+// SuccessFeeResponse returns the monthly settlement calculations
+message SuccessFeeResponse {
+  bool success = 1;
+  Money baseline_revenue = 2;          // Historical monthly average (pre-KIKI)
+  Money current_revenue = 3;           // Actual revenue this month (with KIKI)
+  Money incremental_revenue = 4;       // current - baseline
+  float growth_percentage = 5;         // ((current - baseline) / baseline) * 100
+  Money success_fee_amount = 6;        // 20% of incremental_revenue
+  int32 total_orders_reviewed = 7;     // Total orders processed
+  int32 attributed_order_count = 8;    // Orders attributed to KIKI
+  map<string, int32> attribution_stats = 9; // XAI: {"total_orders": 1234, "attributed": 456, "high_confidence": 234}
+  int32 high_confidence_count = 10;    // Orders with confidence >= 0.85
+}
+
+// OrderAttributionRequest requests the attribution details for a specific order
+message OrderAttributionRequest {
+  int32 order_id = 1;                  // Internal order ID
+}
+
+// OrderAttributionResponse returns the XAI explanation for an order
+message OrderAttributionResponse {
+  bool success = 1;
+  bool attributed = 2;                 // True if attributed to KIKI
+  float confidence = 3;                // Attribution confidence score
+  Money incremental_revenue = 4;       // Amount above baseline
+  Money success_fee_amount = 5;        // 20% of incremental
+  string explanation = 6;              // Human-readable XAI explanation
+  string contributing_agents = 7;      // JSON: {"SyncFlow": 0.5, "SyncCreate": 0.3, "SyncEngage": 0.2}
+  Money counterfactual_revenue = 8;    // Estimated revenue without KIKI
+}
+
+// BaselineUpdateRequest updates the baseline metrics for a store
+message BaselineUpdateRequest {
+  int32 store_id = 1;                  // Shopify store ID
+  Money baseline_revenue = 2;          // Historical monthly average
+  float baseline_avg_order_value = 3;  // Historical AOV
+  int32 baseline_order_count = 4;      // Historical monthly order count
+  string calculation_method = 5;       // "manual", "onboarding_90day", "rolling_90day"
+}
+
+// BaselineUpdateResponse confirms the baseline update
+message BaselineUpdateResponse {
+  bool success = 1;
+  int32 baseline_id = 2;               // Baseline snapshot ID
+  string message = 3;                  // "Baseline updated successfully"
+}

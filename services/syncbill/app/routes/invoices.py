@@ -24,12 +24,32 @@ router = APIRouter()
 
 # Pydantic schemas
 class InvoiceResponse(BaseModel):
-    """Invoice response model"""
+    """Invoice response model with Net Profit Uplift details"""
     id: int
     invoice_number: str
     store_id: int
     customer_name: str
     billing_period: str
+    
+    # Revenue metrics
+    baseline_revenue: float
+    actual_revenue: float
+    incremental_revenue: float
+    uplift_percentage: float
+    
+    # Ad spend metrics (Net Profit Model)
+    baseline_ad_spend: float
+    actual_ad_spend: float
+    incremental_ad_spend: float
+    
+    # Net Profit metrics
+    net_profit_uplift: float
+    baseline_profit: float
+    actual_profit: float
+    client_net_gain: float
+    client_roi: float
+    
+    # Invoice amounts
     subtotal: float
     tax_amount: float
     total_amount: float
