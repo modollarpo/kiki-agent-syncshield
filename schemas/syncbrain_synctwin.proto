@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package kiki.syncbrain;
+
+// SyncBrain-to-SyncTwin handoff contract
+service SyncTwinGatekeeper {
+  rpc SimulateStrategy(SimulateStrategyRequest) returns (SimulateStrategyResponse);
+}
+
+message SimulateStrategyRequest {
+  string client_id = 1;
+  string strategy_json = 2; // Serialized campaign strategy
+  string business_goal = 3;
+  repeated string platforms = 4;
+  double target_ltv = 5;
+}
+
+message SimulateStrategyResponse {
+  double confidence_score = 1; // 0.0-1.0
+  string risk_profile = 2; // "conservative" | "moderate" | "aggressive"
+  double projected_net_profit_uplift = 3;
+  string reason = 4;
+  bool sim_approved = 5;
+}

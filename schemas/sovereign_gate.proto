@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package kiki.v1;
+
+// The core strategy message that moves through the Council
+message CampaignStrategy {
+  string strategy_id = 1;
+  string brand_dna_hash = 2; // From SyncScrape™
+  double target_ltv_uplift = 3;
+  double max_risk_threshold = 4; // SyncShield™ limit
+
+  message ChannelAllocation {
+    string platform = 1; // Meta, Google, TikTok
+    double budget_allocation = 2;
+    string creative_id = 3;
+  }
+
+  repeated ChannelAllocation allocations = 5;
+}
+
+// The Gatekeeper Response
+message SimulationResult {
+  double confidence_score = 1; // 0.0 to 1.0
+  double predicted_net_profit = 2;
+  bool is_approved = 3;
+  string explainability_narrative = 4; // For the Client Dashboard
+}
+
+service SovereignGate {
+  // SyncBrain calls this to get validation before execution
+  rpc ValidateStrategy(CampaignStrategy) returns (SimulationResult);
+}

@@ -1,3 +1,126 @@
+class OrchestrationRequest(BaseModel):
+    brand_dna: Dict[str, Any]
+    customer_segment: Dict[str, Any]
+    channels: list
+    mode: str  # "priority", "parallel", "conditional"
+    priority_order: list = None
+    condition_fn: str = None  # Name of condition function (for demo, string)
+
+@app.post("/orchestrate-retention-flow")
+async def orchestrate_retention_flow(request: OrchestrationRequest):
+    engine = RetentionEngine(request.channels[0])  # Use first channel for base adapter
+    if request.mode == "priority":
+        sent = await engine.orchestrate_multi_channel(request.brand_dna, request.customer_segment, request.channels, request.priority_order)
+        return {"status": "sent" if sent else "delayed"}
+    elif request.mode == "parallel":
+        await engine.orchestrate_parallel(request.brand_dna, request.customer_segment, request.channels)
+        return {"status": "sent_parallel"}
+    elif request.mode == "conditional":
+        # Demo: Use a simple condition function
+        def demo_condition_fn(brand_dna, customer_segment, channel):
+            return customer_segment.get("vip", False) or channel == "email"
+        await engine.orchestrate_conditional(request.brand_dna, request.customer_segment, request.channels, demo_condition_fn)
+        return {"status": "sent_conditional"}
+    else:
+        return {"status": "unknown_mode"}
+
+WORKFLOW_TEMPLATES = {
+    "vip_winback": {
+        "mode": "parallel",
+        "channels": ["email", "sms", "whatsapp"],
+        "condition_fn": "vip_only"
+    },
+    "priority_email_then_sms": {
+        "mode": "priority",
+        "channels": ["email", "sms"],
+        "priority_order": ["email", "sms"]
+    },
+    "churn_risk_conditional": {
+        "mode": "conditional",
+        "channels": ["email", "sms", "whatsapp"],
+        "condition_fn": "churn_risk"
+    }
+}
+
+@app.get("/workflow-templates")
+def list_workflow_templates():
+    return {"templates": WORKFLOW_TEMPLATES}
+
+@app.post("/external-trigger")
+async def external_trigger(payload: dict):
+    # Example: Accept webhook from external system to trigger orchestration
+    template = WORKFLOW_TEMPLATES.get(payload.get("template"), None)
+    if not template:
+        return {"status": "template_not_found"}
+    engine = RetentionEngine(template["channels"][0])
+    if template["mode"] == "priority":
+        await engine.orchestrate_multi_channel(payload["brand_dna"], payload["customer_segment"], template["channels"], template.get("priority_order"))
+    elif template["mode"] == "parallel":
+        await engine.orchestrate_parallel(payload["brand_dna"], payload["customer_segment"], template["channels"])
+    elif template["mode"] == "conditional":
+        def demo_condition_fn(brand_dna, customer_segment, channel):
+            return customer_segment.get("churn_risk", False)
+        await engine.orchestrate_conditional(payload["brand_dna"], payload["customer_segment"], template["channels"], demo_condition_fn)
+    return {"status": "triggered"}
+"""
+SyncEngage™ FastAPI Service
+Production-grade endpoints for retention flows, channel orchestration, and BrandDNA injection.
+"""
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Dict, Any
+import asyncio
+from .retention_logic import RetentionEngine
+
+app = FastAPI()
+
+class RetentionRequest(BaseModel):
+    brand_dna: Dict[str, Any]
+    customer_segment: Dict[str, Any]
+    channel: str  # "email", "sms", "whatsapp", "slack"
+    crm_provider: str  # "klaviyo", "hubspot", "salesforce", "whatsapp", "slack"
+        channel: str  # "email", "sms", "whatsapp", "slack", "mailchimp", "zoho", "activecampaign", "sendinblue", "intercom", "pipedrive"
+        crm_provider: str  # "klaviyo", "hubspot", "salesforce", "whatsapp", "slack", "mailchimp", "zoho", "activecampaign", "sendinblue", "intercom", "pipedrive"
+
+CHANNELS = ["email", "sms", "whatsapp", "slack", "mailchimp", "zoho", "activecampaign", "sendinblue", "intercom", "pipedrive"]
+PROVIDERS = ["klaviyo", "hubspot", "salesforce", "whatsapp", "slack", "mailchimp", "zoho", "activecampaign", "sendinblue", "intercom", "pipedrive"]
+class BatchRetentionRequest(BaseModel):
+    brand_dna: Dict[str, Any]
+    customer_segments: list
+    channel: str
+    crm_provider: str
+
+@app.post("/send-batch-retention-flow")
+async def send_batch_retention_flow(request: BatchRetentionRequest):
+    results = []
+    engine = RetentionEngine(request.crm_provider)
+    for customer_segment in request.customer_segments:
+        try:
+            await engine.send_retention_flow(request.brand_dna, customer_segment, request.channel)
+            results.append({"customer_id": customer_segment.get("id"), "status": "sent"})
+        except Exception as e:
+            results.append({"customer_id": customer_segment.get("id"), "status": "error", "error": str(e)})
+    return {"results": results}
+@app.get("/channels")
+def list_channels():
+    return {"channels": CHANNELS}
+
+@app.get("/providers")
+def list_providers():
+    return {"providers": PROVIDERS}
+
+@app.post("/send-retention-flow")
+async def send_retention_flow(request: RetentionRequest):
+    try:
+        engine = RetentionEngine(request.crm_provider)
+        await engine.send_retention_flow(request.brand_dna, request.customer_segment, request.channel)
+        return {"status": "sent"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/healthz")
+def health_check():
+    return {"status": "ok"}
 """
 SyncEngage – CRM + Retention Automation (Python version)
 """

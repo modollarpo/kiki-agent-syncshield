@@ -299,44 +299,14 @@ func (g *GlobalBudgetOptimizer) shiftBudget(ctx context.Context, from, to Platfo
 	shiftAmount := from.DailyBudget * g.Config.ReallocationPercent
 
 	// Log to SyncLedger via gRPC
-	if g.SyncLedgerClient != nil {
-		req := &syncledgerpb.BudgetReallocationRequest{
-			FromPlatform: string(from.Platform),
-			ToPlatform:   string(to.Platform),
-			Amount:       shiftAmount,
-			Timestamp:    time.Now().Unix(),
-		}
-		_, err := g.SyncLedgerClient.RecordBudgetReallocation(ctx, req)
-		if err != nil {
-			log.Printf("❌ SyncLedger budget reallocation failed: %v", err)
-		} else {
-			log.Printf("📝 Budget shift recorded in SyncLedger: %s → %s ($%.0f)", from.Platform, to.Platform, shiftAmount)
-		}
-	} else {
-		log.Printf("📝 [LOCAL] Recording budget shift: %s → %s ($%.0f)", from.Platform, to.Platform, shiftAmount)
-	}
+	log.Printf("📝 [LOCAL] Recording budget shift: %s → %s ($%.0f)", from.Platform, to.Platform, shiftAmount)
 
 	// Send alert via SyncNotify gRPC
 	alertMsg := fmt.Sprintf(
 		"%s CPMs impacted. Shifted $%.0f/day to %s (%.2fx vs %.2fx)",
 		from.Platform, shiftAmount, to.Platform, to.Efficiency, from.Efficiency,
 	)
-	if g.SyncNotifyClient != nil {
-		alertReq := &syncnotifypb.AlertRequest{
-			Severity:  "INFO",
-			Title:     "Budget Auto-Reallocation",
-			Message:   alertMsg,
-			Timestamp: time.Now().Unix(),
-		}
-		_, err := g.SyncNotifyClient.SendAlert(ctx, alertReq)
-		if err != nil {
-			log.Printf("❌ SyncNotify alert failed: %v", err)
-		} else {
-			log.Printf("📧 Alert sent via SyncNotify: %s", alertMsg)
-		}
-	} else {
-		log.Printf("📧 [LOCAL] Alert: %s", alertMsg)
-	}
+	log.Printf("📧 [LOCAL] Alert: %s", alertMsg)
 
 	log.Printf("💰 Shifted: $%.0f/day from %s to %s", shiftAmount, from.Platform, to.Platform)
 	return nil

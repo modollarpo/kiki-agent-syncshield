@@ -140,7 +140,9 @@ services:
       timeout: 3s
       retries: 10
   auth:
-    build: ./services/auth
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
     ports:
       - "8030:8030"
     depends_on:

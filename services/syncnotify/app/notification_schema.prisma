@@ -1,0 +1,26 @@
+// Prisma schema for client notification preferences
+model ClientPreferences {
+  clientId         String   @id
+  doNotDisturb     DoNotDisturb?
+  preferredChannel NotificationChannel[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+enum NotificationChannel {
+  SMS
+  PhoneCall
+  Slack
+  WhatsApp
+  Dashboard
+  Email
+  InApp
+}
+
+model DoNotDisturb {
+  id        Int      @id @default(autoincrement())
+  active    Boolean
+  startHour Int      // e.g., 20 for 8 PM
+  endHour   Int      // e.g., 8 for 8 AM
+  clientId  String   @unique
+}

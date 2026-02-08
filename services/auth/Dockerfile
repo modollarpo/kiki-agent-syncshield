@@ -7,11 +7,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy shared modules
-COPY /shared /app/shared
-COPY /services/syncvalue/database.py /app/services/syncvalue/database.py
+COPY ../../shared /app/shared
+COPY ../syncvalue/database.py /app/services/syncvalue/database.py
 
 # Copy application
-COPY services/auth/app/ /app/
+COPY ./app /app/
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
