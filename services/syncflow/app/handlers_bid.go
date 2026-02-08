@@ -1,8 +1,12 @@
 package app
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"time"
+
+	"kiki-agent-syncflow/internal"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
@@ -30,28 +34,88 @@ var (
 		},
 		[]string{"endpoint"},
 	)
+	BidsCapped = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "syncflow_bids_capped_total",
+			Help: "Total bids capped by MarginGuardian",
+		},
+	)
+	BidsRejected = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "syncflow_bids_rejected_total",
+			Help: "Total bids rejected by MarginGuardian",
+		},
+	)
 )
 
+// Global MarginGuardian instance
+var marginGuardian *internal.MarginGuardian
+
 func init() {
-	prometheus.MustRegister(BidRequestCount, BidErrorCount, BidLatency)
+	prometheus.MustRegister(BidRequestCount, BidErrorCount, BidLatency, BidsCapped, BidsRejected)
+	marginGuardian = internal.NewMarginGuardian()
 }
 
 // POST /execute-bid
+// Enhanced with MarginGuardian to enforce profit-safe bidding
 func ExecuteBidHandler(c *gin.Context) {
 	start := time.Now()
 	BidRequestCount.WithLabelValues("/execute-bid", "POST").Inc()
+	
 	var req BidRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.UserID == "" || req.Context == nil {
 		BidErrorCount.WithLabelValues("/execute-bid").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid bid request: user_id and context required"})
 		return
 	}
-	// Stub: Accept all bids with status
-	resp := BidResponse{
-		Status: "bid_executed",
-		UserID: req.UserID,
-		Bid:    CalculateBid(req.Context),
+
+	// Calculate initial bid based on context
+	initialBid := CalculateBid(req.Context)
+
+	// CRITICAL: MarginGuardian validates bid is profit-safe
+	// Prevents KIKI from losing money if CPA > LTV
+	ctx := context.Background()
+	decision, err := marginGuardian.EvaluateBid(ctx, req.UserID, initialBid)
+	if err != nil {
+		BidErrorCount.WithLabelValues("/execute-bid").Inc()
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "MarginGuardian evaluation failed",
+			"details": err.Error(),
+		})
+		return
 	}
+
+	// Track MarginGuardian actions
+	if !decision.Approved {
+		BidsRejected.Inc()
+		c.JSON(http.StatusOK, gin.H{
+			"status": "bid_rejected",
+			"user_id": req.UserID,
+			"reason": decision.Reason,
+			"requested_bid": decision.OriginalBid,
+			"predicted_ltv": decision.PredictedLTV,
+			"max_allowed_cpa": decision.MaxAllowedCPA,
+		})
+		BidLatency.WithLabelValues("/execute-bid").Observe(time.Since(start).Seconds())
+		return
+	}
+
+	if decision.RiskLevel == "capped" {
+		BidsCapped.Inc()
+	}
+
+	// Execute bid with approved amount
+	resp := BidResponse{
+		Status:       fmt.Sprintf("bid_executed_%s", decision.RiskLevel),
+		UserID:       req.UserID,
+		Bid:          decision.ApprovedBid,
+		OriginalBid:  decision.OriginalBid,
+		PredictedLTV: decision.PredictedLTV,
+		MaxCPA:       decision.MaxAllowedCPA,
+		RiskLevel:    decision.RiskLevel,
+		Explanation:  decision.Reason,
+	}
+
 	c.JSON(http.StatusOK, resp)
 	BidLatency.WithLabelValues("/execute-bid").Observe(time.Since(start).Seconds())
 }

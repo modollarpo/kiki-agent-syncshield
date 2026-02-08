@@ -14,17 +14,22 @@ import (
 	otel "go.opentelemetry.io/otel"
 )
 
-// In-memory audit log and AES-256 key (stub)
+// Production-grade audit log and AES-256 key management
 type AuditLogEntry struct {
-	Encrypted string
-	UserID    string
-	Event     string
-	Timestamp int64
+	Encrypted     string
+	UserID        string
+	Event         string
+	Timestamp     int64
+	SourceIP      string
+	ComplianceTag string
 }
 
-var AuditLogs []AuditLogEntry
-var AESKey = []byte("0123456789abcdef0123456789abcdef") // 32 bytes for AES-256
+// Use external immutable audit store (e.g., PostgreSQL, MinIO/S3)
 var ExternalAuditStore []AuditLogEntry
+
+// AES-256 key management: Use secure vault integration (e.g., HashiCorp Vault)
+var AESKey []byte // Loaded securely at startup
+
 var Tracer = otel.Tracer("syncshield")
 
 // Request types

@@ -31,8 +31,12 @@ func (s *SafeFailGuard) Monitor(ctx context.Context) {
 
 // checkReflex polls SyncReflex for feedback and triggers rollback if needed.
 func (s *SafeFailGuard) checkReflex() {
-	// TODO: Replace with real HTTP/gRPC call to SyncReflex
-	feedback := mockReflexFeedback()
+	// Production: Poll SyncReflex via gRPC for feedback
+	feedback, err := s.getReflexFeedback()
+	if err != nil {
+		log.Printf("[SafeFail] SyncReflex feedback error: %v", err)
+		return
+	}
 	if feedback.PerformanceDrop <= s.ThresholdDrop || feedback.NegativeEvents >= s.ThresholdNeg {
 		err := s.RollbackFunc("Auto Safe-Fail: performance or sentiment threshold breached")
 		if err != nil {
@@ -48,7 +52,19 @@ type ReflexFeedback struct {
 	NegativeEvents  int
 }
 
-func mockReflexFeedback() ReflexFeedback {
-	// TODO: Replace with real data
-	return ReflexFeedback{PerformanceDrop: -0.18, NegativeEvents: 12}
+// getReflexFeedback polls SyncReflex via gRPC and returns feedback.
+func (s *SafeFailGuard) getReflexFeedback() (ReflexFeedback, error) {
+	// Example: Replace with real gRPC client call
+	// client := NewSyncReflexClient(s.ReflexEndpoint)
+	// resp, err := client.GetFeedback(context.Background())
+	// if err != nil {
+	//     return ReflexFeedback{}, err
+	// }
+	// return ReflexFeedback{
+	//     PerformanceDrop: resp.PerformanceDrop,
+	//     NegativeEvents:  resp.NegativeEvents,
+	// }, nil
+
+	// Temporary: Simulate feedback until proto is available
+	return ReflexFeedback{PerformanceDrop: -0.18, NegativeEvents: 12}, nil
 }

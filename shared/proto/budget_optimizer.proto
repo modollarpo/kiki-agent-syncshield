@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package budgetoptimizer;
+
+option go_package = "shared/proto/budgetoptimizer";
+
+// BudgetOptimizerService - Cross-platform budget allocation service
+// Used by: GlobalBudgetOptimizer in SyncFlow
+service BudgetOptimizerService {
+  // GetPlatformLTV returns the average LTV for users acquired via a specific platform
+  rpc GetPlatformLTV(PlatformLTVRequest) returns (PlatformLTVResponse);
+  
+  // SendBudgetAlert sends notifications about budget reallocations
+  rpc SendBudgetAlert(BudgetAlertRequest) returns (BudgetAlertResponse);
+
+  // RecordBudgetReallocation logs budget shifts to the ledger
+  rpc RecordBudgetReallocation(BudgetReallocationRequest) returns (BudgetReallocationResponse);
+}
+
+// Platform enum for all supported ad platforms
+enum Platform {
+  PLATFORM_UNSPECIFIED = 0;
+  PLATFORM_META = 1;
+  PLATFORM_GOOGLE = 2;
+  PLATFORM_TIKTOK = 3;
+  PLATFORM_LINKEDIN = 4;
+  PLATFORM_AMAZON = 5;
+  PLATFORM_MICROSOFT = 6;
+}
+
+// PlatformLTVRequest - Get LTV for a specific platform
+message PlatformLTVRequest {
+  string client_id = 1;
+  Platform platform = 2;
+  int32 lookback_days = 3;  // Default: 90 days
+}
+
+message PlatformLTVResponse {
+  Platform platform = 1;
+  double average_ltv = 2;
+  double p25_ltv = 3;  // 25th percentile
+  double p75_ltv = 4;  // 75th percentile
+  int32 sample_size = 5;
+}
+
+// BudgetAlertRequest - Send notification about budget reallocation
+message BudgetAlertRequest {
+  string client_id = 1;
+  string severity = 2;  // "INFO", "WARNING", "CRITICAL"
+  string title = 3;
+  string message = 4;
+  map<string, string> metadata = 5;
+}
+
+message BudgetAlertResponse {
+  bool success = 1;
+  string notification_id = 2;
+}
+
+// BudgetReallocationRequest - Log budget shift event
+message BudgetReallocationRequest {
+  string client_id = 1;
+  Platform from_platform = 2;
+  Platform to_platform = 3;
+  double amount_shifted = 4;  // Daily budget amount in USD
+  string reason = 5;
+  double from_efficiency = 6;  // LTV/CAC ratio before shift
+  double to_efficiency = 7;    // LTV/CAC ratio of destination
+  int64 timestamp = 8;
+}
+
+message BudgetReallocationResponse {
+  bool success = 1;
+  string ledger_entry_id = 2;
+}

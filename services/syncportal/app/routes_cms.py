@@ -163,13 +163,13 @@ async def shopify_oauth_callback(
         scopes = token_data.get('scope', '')
     
     # Store connection in database (credentials encrypted by SyncShield™)
-    # TODO: Call SyncShield.EncryptCustomerData() to encrypt access_token
+    encrypted_token = await syncshield_client.encrypt_customer_data(access_token)
     store = StoreConnectionModel(
         user_id=user_id,
         platform='shopify',
         store_name=shop,
         api_key=SHOPIFY_API_KEY,  # Public API key
-        access_token=access_token,  # TODO: Encrypt this
+        access_token=encrypted_token,
         scopes=scopes,
         is_active=True
     )
@@ -295,13 +295,14 @@ async def woocommerce_connect(
         raise HTTPException(status_code=401, detail=f"Connection failed: {str(e)}")
     
     # Store connection (encrypt credentials)
-    # TODO: Encrypt consumer_key and consumer_secret via SyncShield
+    encrypted_consumer_key = await syncshield_client.encrypt_customer_data(consumer_key)
+    encrypted_consumer_secret = await syncshield_client.encrypt_customer_data(consumer_secret)
     store = StoreConnectionModel(
         user_id=user_id,
         platform='woocommerce',
         store_name=site_url,
-        api_key=consumer_key,  # TODO: Encrypt
-        api_secret=consumer_secret,  # TODO: Encrypt
+        api_key=encrypted_consumer_key,
+        api_secret=encrypted_consumer_secret,
         webhook_secret=webhook_secret,
         is_active=True
     )

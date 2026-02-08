@@ -4,7 +4,7 @@
 package app
 
 import (
-	"kiki_agent/services/syncflow/internal"
+	"kiki_agent/services/kiki-agent-syncflow/internal"
 
 	"github.com/google/wire"
 )

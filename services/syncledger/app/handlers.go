@@ -315,3 +315,68 @@ func stringPtr(s string) *string {
 	}
 	return &s
 }
+
+// RecordBudgetReallocation logs cross-platform budget shifts from GlobalBudgetOptimizer
+//
+// Called by: SyncFlow GlobalBudgetOptimizer
+// Purpose: Track all budget reallocations for OaaS attribution
+//
+// Example Request:
+//
+//	{
+//	  "client_id": "demo-client-001",
+//	  "from_platform": "PLATFORM_META",
+//	  "to_platform": "PLATFORM_TIKTOK",
+//	  "amount_shifted": 100.00,
+//	  "reason": "Efficiency drop: 2.50x vs 2.83x avg",
+//	  "from_efficiency": 2.5,
+//	  "to_efficiency": 4.0,
+//	  "timestamp": 1738935567
+//	}
+func (s *LedgerService) RecordBudgetReallocation(
+	ctx context.Context,
+	req *pb.BudgetReallocationRequest,
+) (*pb.BudgetReallocationResponse, error) {
+	log.Printf("💰 RecordBudgetReallocation: %s → %s ($%.2f) - Reason: %s",
+		req.FromPlatform, req.ToPlatform, req.AmountShifted, req.Reason)
+
+	// Validate request
+	if req.ClientId == "" {
+		return nil, status.Error(codes.InvalidArgument, "client_id is required")
+	}
+	if req.AmountShifted <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "amount_shifted must be positive")
+	}
+
+	// Create budget reallocation log entry
+	reallocationLog := map[string]interface{}{
+		"client_id":       req.ClientId,
+		"from_platform":   req.FromPlatform,
+		"to_platform":     req.ToPlatform,
+		"amount_shifted":  req.AmountShifted,
+		"reason":          req.Reason,
+		"from_efficiency": req.FromEfficiency,
+		"to_efficiency":   req.ToEfficiency,
+		"timestamp":       time.Unix(req.Timestamp, 0),
+		"created_at":      time.Now(),
+	}
+
+	// Insert into budget_reallocation_log table
+	// Note: Table will be created by migration script
+	result := s.db.Table("budget_reallocation_log").Create(reallocationLog)
+	if result.Error != nil {
+		log.Printf("❌ Failed to record budget reallocation: %v", result.Error)
+		return nil, status.Errorf(codes.Internal, "Failed to record reallocation: %v", result.Error)
+	}
+
+	// Get last insert ID
+	var insertedID int64
+	s.db.Raw("SELECT LAST_INSERT_ID()").Scan(&insertedID)
+
+	log.Printf("✅ Budget reallocation recorded - Entry ID: %d", insertedID)
+
+	return &pb.BudgetReallocationResponse{
+		Success:       true,
+		LedgerEntryId: int32(insertedID),
+	}, nil
+}

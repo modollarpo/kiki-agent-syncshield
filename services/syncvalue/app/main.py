@@ -193,6 +193,10 @@ def train(req: TrainRequest):
 # Include the new LTV router
 # app.include_router(ltv_router)  # Commented out - router not available in container
 
+# Include GlobalBudgetOptimizer platform LTV router
+from handlers_platform_ltv import router as platform_ltv_router
+app.include_router(platform_ltv_router)
+
 # Prometheus /metrics endpoint
 @app.get("/metrics")
 def prometheus_metrics():

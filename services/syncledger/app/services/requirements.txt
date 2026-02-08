@@ -1,0 +1,17 @@
+# Python dependencies for Ad Spend Fetcher Service
+# Used by SyncLedger for multi-platform ad spend tracking
+
+# Core dependencies
+httpx>=0.27.0  # Async HTTP client for REST APIs
+
+# Platform-specific SDKs
+facebook-business>=24.0.0  # Meta Ads (Facebook/Instagram)
+google-ads>=29.0.0  # Google Ads
+bingads>=13.0.18  # Microsoft Advertising (Bing)
+
+# Note: TikTok, LinkedIn, Amazon use direct REST API calls (httpx only)
+# No official Python SDKs for these platforms
+
+# Utilities
+python-dotenv>=1.0.0  # Environment variable management
+pydantic>=2.0.0  # Data validation

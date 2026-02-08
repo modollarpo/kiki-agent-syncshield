@@ -14,9 +14,14 @@ type BidRequest struct {
 }
 
 type BidResponse struct {
-	Status string  `json:"status"`
-	UserID string  `json:"user_id"`
-	Bid    float64 `json:"bid"`
+	Status       string  `json:"status"`
+	UserID       string  `json:"user_id"`
+	Bid          float64 `json:"bid"`
+	OriginalBid  float64 `json:"original_bid,omitempty"`  // Requested bid before MarginGuardian
+	PredictedLTV float64 `json:"predicted_ltv,omitempty"` // Customer lifetime value
+	MaxCPA       float64 `json:"max_cpa,omitempty"`       // Maximum allowed cost per acquisition
+	RiskLevel    string  `json:"risk_level,omitempty"`    // safe, moderate, high, capped, rejected
+	Explanation  string  `json:"explanation,omitempty"`   // Why bid was approved/capped/rejected
 }
 
 type BudgetRequest struct {

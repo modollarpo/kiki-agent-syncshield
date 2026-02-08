@@ -17,3 +17,5 @@ export { default as OnboardingChecklist } from './OnboardingChecklist';
 export { default as LegalConsent } from './LegalConsent';
 export { default as OaasCalculator } from './OaasCalculator';
 export { default as ImpactAuditForm } from './ImpactAuditForm';
+export { default as ProfitTransparency } from './ProfitTransparency';
+export type { ProfitData, ProfitTransparencyProps } from './ProfitTransparency';

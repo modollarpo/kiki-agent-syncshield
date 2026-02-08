@@ -1,0 +1,8 @@
+# KIKI Agent™ Periodic Cleanup Cron
+# Runs the cleanup script every Sunday at 3:30am (off-peak)
+# Logs output to /var/log/kiki_cleanup.log or ./logs/cleanup.log
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+30 3 * * 0 /workspaces/kiki-agent-syncshield/utils/kiki_periodic_cleanup.sh

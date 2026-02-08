@@ -57,6 +57,13 @@ service SyncLedgerService {
   // - Monthly recalculation (rolling 90-day average)
   // - Admin override (manual adjustment)
   rpc UpdateBaselineMetrics(BaselineUpdateRequest) returns (BaselineUpdateResponse);
+
+  // RecordBudgetReallocation logs cross-platform budget shifts from GlobalBudgetOptimizer
+  //
+  // Called by:
+  // - SyncFlow GlobalBudgetOptimizer (every 5 minutes when efficiency drops >15%)
+  // - Logs budget shifts for OaaS attribution and audit trail
+  rpc RecordBudgetReallocation(BudgetReallocationRequest) returns (BudgetReallocationResponse);
 }
 
 // Money represents a monetary amount with currency
@@ -141,4 +148,22 @@ message BaselineUpdateResponse {
   bool success = 1;
   int32 baseline_id = 2;               // Baseline snapshot ID
   string message = 3;                  // "Baseline updated successfully"
+}
+
+// BudgetReallocationRequest logs a budget shift between platforms
+message BudgetReallocationRequest {
+  string client_id = 1;                // KIKI client ID
+  string from_platform = 2;            // Platform losing budget (e.g., "PLATFORM_META")
+  string to_platform = 3;              // Platform gaining budget (e.g., "PLATFORM_TIKTOK")
+  double amount_shifted = 4;           // Daily budget amount shifted (USD)
+  string reason = 5;                   // Human-readable reason (e.g., "Efficiency drop: 2.50x vs 2.83x avg")
+  double from_efficiency = 6;          // LTV-to-CAC ratio of losing platform
+  double to_efficiency = 7;            // LTV-to-CAC ratio of gaining platform
+  int64 timestamp = 8;                 // Unix timestamp of shift
+}
+
+// BudgetReallocationResponse confirms the shift was logged
+message BudgetReallocationResponse {
+  bool success = 1;                    // True if logged successfully
+  int32 ledger_entry_id = 2;           // Immutable ledger entry ID
 }

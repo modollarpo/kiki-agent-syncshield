@@ -1,0 +1,161 @@
+# Prometheus Metrics for Multi-Platform Ad Spend Fetcher
+# Add these metric definitions to your Prometheus exporters
+
+# ============================================================================
+# COUNTER METRICS
+# ============================================================================
+
+# Total successful ad spend fetches by platform
+kiki_ad_spend_fetch_total{platform="meta"} 1500
+kiki_ad_spend_fetch_total{platform="google"} 1450
+kiki_ad_spend_fetch_total{platform="tiktok"} 320
+kiki_ad_spend_fetch_total{platform="linkedin"} 280
+kiki_ad_spend_fetch_total{platform="amazon"} 150
+kiki_ad_spend_fetch_total{platform="microsoft"} 120
+
+# Total API errors by platform
+kiki_ad_spend_fetch_errors_total{platform="meta",error_type="auth"} 5
+kiki_ad_spend_fetch_errors_total{platform="google",error_type="rate_limit"} 2
+kiki_ad_spend_fetch_errors_total{platform="tiktok",error_type="timeout"} 8
+kiki_ad_spend_fetch_errors_total{platform="linkedin",error_type="network"} 3
+
+# ============================================================================
+# GAUGE METRICS
+# ============================================================================
+
+# Current ad spend amount by platform (USD)
+kiki_ad_spend_total{platform="meta",store_id="1"} 12500.00
+kiki_ad_spend_total{platform="google",store_id="1"} 8300.50
+kiki_ad_spend_total{platform="tiktok",store_id="1"} 3200.00
+kiki_ad_spend_total{platform="linkedin",store_id="1"} 4500.75
+kiki_ad_spend_total{platform="amazon",store_id="1"} 2100.00
+kiki_ad_spend_total{platform="microsoft",store_id="1"} 1500.25
+
+# Net profit uplift by platform (USD)
+kiki_net_profit_uplift{platform="meta",store_id="1"} 15000.00
+kiki_net_profit_uplift{platform="google",store_id="1"} 10500.00
+kiki_net_profit_uplift{platform="tiktok",store_id="1"} 4200.00
+kiki_net_profit_uplift{platform="linkedin",store_id="1"} 8500.00
+kiki_net_profit_uplift{platform="amazon",store_id="1"} 2800.00
+kiki_net_profit_uplift{platform="microsoft",store_id="1"} 1900.00
+
+# KIKI success fee (20% of net profit) by platform
+kiki_success_fee_total{platform="meta",store_id="1"} 3000.00
+kiki_success_fee_total{platform="google",store_id="1"} 2100.00
+kiki_success_fee_total{platform="tiktok",store_id="1"} 840.00
+kiki_success_fee_total{platform="linkedin",store_id="1"} 1700.00
+kiki_success_fee_total{platform="amazon",store_id="1"} 560.00
+kiki_success_fee_total{platform="microsoft",store_id="1"} 380.00
+
+# Platform API availability (1 = up, 0 = down)
+kiki_platform_available{platform="meta"} 1
+kiki_platform_available{platform="google"} 1
+kiki_platform_available{platform="tiktok"} 1
+kiki_platform_available{platform="linkedin"} 1
+kiki_platform_available{platform="amazon"} 1
+kiki_platform_available{platform="microsoft"} 1
+
+# ============================================================================
+# HISTOGRAM METRICS
+# ============================================================================
+
+# API fetch duration by platform (seconds)
+kiki_ad_spend_fetch_duration_seconds{platform="meta",le="0.5"} 1200
+kiki_ad_spend_fetch_duration_seconds{platform="meta",le="1.0"} 1450
+kiki_ad_spend_fetch_duration_seconds{platform="meta",le="5.0"} 1500
+kiki_ad_spend_fetch_duration_seconds{platform="meta",le="+Inf"} 1500
+
+kiki_ad_spend_fetch_duration_seconds{platform="tiktok",le="0.5"} 280
+kiki_ad_spend_fetch_duration_seconds{platform="tiktok",le="1.0"} 310
+kiki_ad_spend_fetch_duration_seconds{platform="tiktok",le="5.0"} 320
+kiki_ad_spend_fetch_duration_seconds{platform="tiktok",le="+Inf"} 320
+
+kiki_ad_spend_fetch_duration_seconds{platform="linkedin",le="0.5"} 250
+kiki_ad_spend_fetch_duration_seconds{platform="linkedin",le="1.0"} 275
+kiki_ad_spend_fetch_duration_seconds{platform="linkedin",le="5.0"} 280
+kiki_ad_spend_fetch_duration_seconds{platform="linkedin",le="+Inf"} 280
+
+# Amazon is slower due to async report generation
+kiki_ad_spend_fetch_duration_seconds{platform="amazon",le="0.5"} 0
+kiki_ad_spend_fetch_duration_seconds{platform="amazon",le="1.0"} 0
+kiki_ad_spend_fetch_duration_seconds{platform="amazon",le="5.0"} 20
+kiki_ad_spend_fetch_duration_seconds{platform="amazon",le="30.0"} 140
+kiki_ad_spend_fetch_duration_seconds{platform="amazon",le="60.0"} 150
+kiki_ad_spend_fetch_duration_seconds{platform="amazon",le="+Inf"} 150
+
+# ============================================================================
+# EXAMPLE PROMETHEUS QUERIES
+# ============================================================================
+
+# Query: Total ad spend across all platforms
+# sum(kiki_ad_spend_total)
+
+# Query: Platform with highest error rate
+# topk(1, sum by (platform) (rate(kiki_ad_spend_fetch_errors_total[5m])))
+
+# Query: Average net profit per platform (last 24h)
+# avg_over_time(kiki_net_profit_uplift[24h])
+
+# Query: Success rate by platform
+# sum by (platform) (rate(kiki_ad_spend_fetch_total[5m])) / 
+# (sum by (platform) (rate(kiki_ad_spend_fetch_total[5m])) + 
+#  sum by (platform) (rate(kiki_ad_spend_fetch_errors_total[5m])))
+
+# Query: P95 latency by platform
+# histogram_quantile(0.95, sum by (platform, le) (rate(kiki_ad_spend_fetch_duration_seconds_bucket[5m])))
+
+# ============================================================================
+# ALERTING RULES
+# ============================================================================
+
+# Alert: Platform API Down
+ALERT PlatformAPIDown
+IF kiki_platform_available == 0
+FOR 5m
+LABELS {
+  severity = "critical",
+  team = "revenue-engineering"
+}
+ANNOTATIONS {
+  summary = "Platform {{ $labels.platform }} API is down",
+  description = "Platform {{ $labels.platform }} has been unavailable for 5 minutes"
+}
+
+# Alert: High Error Rate
+ALERT HighAPIErrorRate
+IF sum by (platform) (rate(kiki_ad_spend_fetch_errors_total[5m])) > 0.05
+FOR 10m
+LABELS {
+  severity = "warning",
+  team = "revenue-engineering"
+}
+ANNOTATIONS {
+  summary = "High error rate on {{ $labels.platform }}",
+  description = "{{ $labels.platform }} error rate is {{ $value | humanize }}%"
+}
+
+# Alert: Slow API Response
+ALERT SlowAPIResponse
+IF histogram_quantile(0.95, sum by (platform, le) (rate(kiki_ad_spend_fetch_duration_seconds_bucket[5m]))) > 10
+FOR 15m
+LABELS {
+  severity = "warning",
+  team = "revenue-engineering"
+}
+ANNOTATIONS {
+  summary = "{{ $labels.platform }} API is slow",
+  description = "P95 latency is {{ $value | humanize }}s (threshold: 10s)"
+}
+
+# Alert: Net Profit Dropped
+ALERT NetProfitDrop
+IF rate(kiki_net_profit_uplift[1h]) < -1000
+FOR 30m
+LABELS {
+  severity = "warning",
+  team = "revenue-engineering"
+}
+ANNOTATIONS {
+  summary = "Net profit dropped on {{ $labels.platform }}",
+  description = "Net profit decrease detected: {{ $value | humanize }} USD/hour"
+}

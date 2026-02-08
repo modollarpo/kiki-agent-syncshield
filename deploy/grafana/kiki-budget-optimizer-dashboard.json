@@ -1,0 +1,380 @@
+{
+  "dashboard": {
+    "title": "KIKI Agent™ - Cross-Platform Budget Efficiency",
+    "description": "Real-time monitoring of GlobalBudgetOptimizer performance and platform efficiency metrics",
+    "tags": ["kiki", "syncflow", "budget-optimizer", "cross-platform"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "5m",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Platform Efficiency (LTV/CAC Ratio)",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "syncflow_platform_efficiency",
+            "legendFormat": "{{platform}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Efficiency (LTV/CAC)",
+            "format": "short",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ],
+        "xaxis": {
+          "show": true,
+          "mode": "time"
+        },
+        "thresholds": [
+          {
+            "value": 2.0,
+            "colorMode": "critical",
+            "op": "lt",
+            "line": true,
+            "fill": true
+          },
+          {
+            "value": 3.0,
+            "colorMode": "custom",
+            "op": "gt",
+            "line": true,
+            "fill": false,
+            "fillColor": "rgba(50, 172, 45, 0.2)",
+            "lineColor": "rgba(50, 172, 45, 1)"
+          }
+        ],
+        "alert": {
+          "name": "Platform Efficiency Alert",
+          "message": "Platform efficiency dropped below 2.0x",
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [2.0],
+                "type": "lt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "title": "Budget Shifts (24h)",
+        "type": "stat",
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "increase(syncflow_budget_shifts_total[24h])",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "justifyMode": "center",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": null,
+                  "color": "green"
+                },
+                {
+                  "value": 10,
+                  "color": "yellow"
+                },
+                {
+                  "value": 20,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Average Efficiency Trend",
+        "type": "graph",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "avg(syncflow_platform_efficiency)",
+            "legendFormat": "Average",
+            "refId": "A"
+          },
+          {
+            "expr": "max(syncflow_platform_efficiency)",
+            "legendFormat": "Best Platform",
+            "refId": "B"
+          },
+          {
+            "expr": "min(syncflow_platform_efficiency)",
+            "legendFormat": "Worst Platform",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Efficiency",
+            "format": "short"
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Platform Budget Allocation",
+        "type": "piechart",
+        "gridPos": {
+          "x": 0,
+          "y": 8,
+          "w": 6,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "syncflow_platform_daily_budget",
+            "legendFormat": "{{platform}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Budget Reallocation Timeline",
+        "type": "table",
+        "gridPos": {
+          "x": 6,
+          "y": 8,
+          "w": 18,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "syncflow_budget_shifts_total",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {
+                "Time": 0,
+                "from_platform": 1,
+                "to_platform": 2,
+                "amount": 3,
+                "reason": 4
+              }
+            }
+          }
+        ],
+        "options": {
+          "sortBy": [
+            {
+              "displayName": "Time",
+              "desc": true
+            }
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "title": "Meta vs TikTok Efficiency Comparison",
+        "type": "graph",
+        "gridPos": {
+          "x": 0,
+          "y": 16,
+          "w": 12,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "syncflow_platform_efficiency{platform=\"PLATFORM_META\"}",
+            "legendFormat": "Meta (Facebook/Instagram)",
+            "refId": "A"
+          },
+          {
+            "expr": "syncflow_platform_efficiency{platform=\"PLATFORM_TIKTOK\"}",
+            "legendFormat": "TikTok",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "LTV/CAC Ratio",
+            "format": "short"
+          }
+        ],
+        "seriesOverrides": [
+          {
+            "alias": "Meta (Facebook/Instagram)",
+            "color": "#1877F2"
+          },
+          {
+            "alias": "TikTok",
+            "color": "#FE2C55"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Google vs LinkedIn Efficiency",
+        "type": "graph",
+        "gridPos": {
+          "x": 12,
+          "y": 16,
+          "w": 12,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "syncflow_platform_efficiency{platform=\"PLATFORM_GOOGLE\"}",
+            "legendFormat": "Google Ads",
+            "refId": "A"
+          },
+          {
+            "expr": "syncflow_platform_efficiency{platform=\"PLATFORM_LINKEDIN\"}",
+            "legendFormat": "LinkedIn Ads",
+            "refId": "B"
+          }
+        ],
+        "seriesOverrides": [
+          {
+            "alias": "Google Ads",
+            "color": "#4285F4"
+          },
+          {
+            "alias": "LinkedIn Ads",
+            "color": "#0A66C2"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Efficiency Deviation from Average",
+        "type": "bargauge",
+        "gridPos": {
+          "x": 0,
+          "y": 22,
+          "w": 24,
+          "h": 6
+        },
+        "targets": [
+          {
+            "expr": "(syncflow_platform_efficiency - avg(syncflow_platform_efficiency)) / avg(syncflow_platform_efficiency) * 100",
+            "legendFormat": "{{platform}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": -15,
+                  "color": "red"
+                },
+                {
+                  "value": -10,
+                  "color": "yellow"
+                },
+                {
+                  "value": 0,
+                  "color": "green"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "client_id",
+          "type": "query",
+          "label": "Client",
+          "query": "label_values(syncflow_platform_efficiency, client_id)",
+          "refresh": 1,
+          "multi": false
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Budget Reallocations",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(syncflow_budget_shifts_total[5m]) > 0",
+          "iconColor": "red",
+          "tags": ["budget-shift"],
+          "textFormat": "Budget reallocation occurred"
+        }
+      ]
+    }
+  }
+}
