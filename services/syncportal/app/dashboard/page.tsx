@@ -2,7 +2,7 @@ import { NetProfitUplift } from '../types';
 import { useState, useEffect } from 'react';
 import { SyncTwinGate } from './components/SyncTwinGate';
 import { ExplainabilityFeed } from './components/ExplainabilityFeed';
-import { Recharts, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function DashboardPage() {
   const [uplift, setUplift] = useState<NetProfitUplift | null>(null);

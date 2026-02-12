@@ -1,0 +1,3 @@
+module.exports=[44643,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(3041);a.n(d("[project]/services/syncportal/node_modules/next/dist/client/components/builtin/global-error.js <module evaluation>"))},98174,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(3041);a.n(d("[project]/services/syncportal/node_modules/next/dist/client/components/builtin/global-error.js"))},37102,a=>{"use strict";a.i(44643);var b=a.i(98174);a.n(b)}];
+
+//# sourceMappingURL=c8229_next_dist_client_components_builtin_global-error_68fd44ae.js.map
