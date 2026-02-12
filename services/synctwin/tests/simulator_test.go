@@ -2,8 +2,8 @@ package tests
 
 import (
 	"context"
+	"synctwin/app"
 	"testing"
-	"workspaces/kiki-agent-syncshield/services/synctwin/app"
 )
 
 func TestSimulateStrategy_ZeroUplift(t *testing.T) {
@@ -16,7 +16,7 @@ func TestSimulateStrategy_ZeroUplift(t *testing.T) {
 		ROIThreshold: 2.0,
 	}
 	// Simulate zero uplift scenario
-	result, err := app.SimulateStrategy(context.Background(), input)
+	result, err := app.SimulateStrategy(context.Background(), input, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("SimulateStrategy failed: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestRunChaosTest_NegativeUplift(t *testing.T) {
 		TargetLTV:    450.0,
 		ROIThreshold: 2.0,
 	}
-	result, err := app.RunChaosTest(context.Background(), input)
+	result, err := app.RunChaosTest(context.Background(), input, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("RunChaosTest failed: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestMirrorSync_AutoRollback(t *testing.T) {
 		TargetLTV:    450.0,
 		ROIThreshold: 2.0,
 	}
-	result, err := app.MirrorSync(context.Background(), input)
+	result, err := app.MirrorSync(context.Background(), input, nil, nil, nil, 1000.0)
 	if err != nil {
 		t.Fatalf("MirrorSync failed: %v", err)
 	}
@@ -66,29 +66,6 @@ func TestMirrorSync_AutoRollback(t *testing.T) {
 	}
 	// If no auto-rollback violation, test passes if confidence is high
 }
-package tests
-
-import (
-	"context"
-	"testing"
-	"workspaces/kiki-agent-syncshield/services/synctwin/app"
-)
-
-package tests
-
-import (
-	"context"
-	"testing"
-	"workspaces/kiki-agent-syncshield/services/synctwin/app"
-)
-
-package tests
-
-import (
-	"context"
-	"testing"
-	"workspaces/kiki-agent-syncshield/services/synctwin/app"
-)
 
 func TestSimulateStrategy_PositiveUplift(t *testing.T) {
 	input := app.SimulationInput{
@@ -99,7 +76,7 @@ func TestSimulateStrategy_PositiveUplift(t *testing.T) {
 		TargetLTV:    450.0,
 		ROIThreshold: 2.0,
 	}
-	result, err := app.SimulateStrategy(context.Background(), input)
+	result, err := app.SimulateStrategy(context.Background(), input, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("SimulateStrategy failed: %v", err)
 	}
@@ -121,7 +98,7 @@ func TestSimulateStrategy_NegativeUplift(t *testing.T) {
 		ROIThreshold: 2.0,
 	}
 	// Force negative uplift by manipulating input (simulate low revenue/high spend)
-	result, err := app.SimulateStrategy(context.Background(), input)
+	result, err := app.SimulateStrategy(context.Background(), input, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("SimulateStrategy failed: %v", err)
 	}
@@ -139,7 +116,7 @@ func TestRunChaosTest(t *testing.T) {
 		TargetLTV:    450.0,
 		ROIThreshold: 2.0,
 	}
-	result, err := app.RunChaosTest(context.Background(), input)
+	result, err := app.RunChaosTest(context.Background(), input, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("RunChaosTest failed: %v", err)
 	}
@@ -157,7 +134,7 @@ func TestMirrorSync(t *testing.T) {
 		TargetLTV:    450.0,
 		ROIThreshold: 2.0,
 	}
-	result, err := app.MirrorSync(context.Background(), input)
+	result, err := app.MirrorSync(context.Background(), input, nil, nil, nil, 1000.0)
 	if err != nil {
 		t.Fatalf("MirrorSync failed: %v", err)
 	}
