@@ -10,19 +10,14 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "types": ["react", "react-dom"],
-    "typeRoots": [
-      "./node_modules/@types",
-      "./@types"
-    ],
+    "typeRoots": ["./node_modules/@types", "./@types"],
     "paths": {
       "react": ["./node_modules/react"],
       "react-dom": ["./node_modules/react-dom"],
       "@syncportal/components/*": ["./services/syncportal/components/*"]
-    },
-    "types": ["react", "react-dom"],
-    "typeRoots": ["./node_modules/@types"]
+    }
   },
   "include": [
     "services/dashboard/src",

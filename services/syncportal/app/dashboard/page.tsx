@@ -1,6 +1,11 @@
 import { NetProfitUplift } from '../types';
 import { useState, useEffect } from 'react';
-import { SyncTwinGate } from './components/SyncTwinGate';
+import dynamic from "next/dynamic";
+
+const SyncTwinGate = dynamic(() => import("./components/SyncTwinGate"), {
+  loading: () => <div>Loading SyncTwin Gate...</div>,
+  ssr: false,
+});
 import { ExplainabilityFeed } from './components/ExplainabilityFeed';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
